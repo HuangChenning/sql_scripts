@@ -2,6 +2,6 @@
 
 ![Static Badge](https://img.shields.io/badge/Author-HuangCN-blue)
 
-Oracle sqlplus scripts
+<font size=2> Oracle sqlplus scripts </font>
 
-收藏一些日常使用的Oracle脚本
+<font size=2> 收藏一些日常使用的Oracle脚本 </font>
