@@ -1,0 +1,1 @@
+ps vx|grep ora|grep -v grep|awk '{sum+=($7-$10)};END{print sum/1024 "mb"}'

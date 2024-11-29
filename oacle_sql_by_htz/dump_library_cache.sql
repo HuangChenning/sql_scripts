@@ -1,0 +1,4 @@
+oradebug setmypid
+oradebug unlimit
+oradebug dump library_cache 10
+oradebug tracefile_name

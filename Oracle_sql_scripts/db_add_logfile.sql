@@ -1,14 +1,14 @@
 -- File Name : db_add_logfile.sql
--- Purpose : �����ڴ������ݿ��������־�ļ��飬��Ҫָ����־�����
---           ָ����־�ļ���С�����Զ�����־�ļ�С��ָ����С����־��ɾ��
---           @db_add_logfile.sql һ·�س�
+-- Purpose : 用于在创建数据库后，添加日志文件组，需要指定日志组个数
+--           指定日志文件大小，会自动把日志文件小于指定大小的日志组删除
+--           @db_add_logfile.sql 一路回车
 --           @db_add_logfile.sql 2 8 +DATA_01
 -- Date : 2016/05/19
--- ������䡢QQ:7343696
+-- 认真就输、QQ:7343696
 -- http://www.htz.pw
--- ����ű��������http://www.htz.pw/script
--- 20161129 ����·�����룬���·����һ����������·���������е���־�顣
--- 20161129 �����ڷǹ鵵ģʽ��RAC��֧�֣�����Ƿǹ鵵ģʽ����ɾ�������ڵ���ǰ��REDO��ֻ������ʾ��Ϣ��
+-- 更多脚本，请访问http://www.htz.pw/script
+-- 20161129 增加路径输入，如果路径不一样，会在新路径创建所有的日志组。
+-- 20161129 添加在非归档模式对RAC的支持，如果是非归档模式，不删除其它节点活动或当前的REDO，只给出提示信息。
 set lines 200
 set pages 1000 heading on verify off serveroutput on
 PRO

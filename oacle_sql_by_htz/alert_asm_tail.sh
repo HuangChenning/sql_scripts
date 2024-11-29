@@ -1,0 +1,2 @@
+#!/bin/sh
+tail -f `adrci exec='show homepath'| grep "diag/asm/"|grep  $ORACLE_SID | awk  '{print  homepath"/"$1"/trace"}' homepath=$ORACLE_BASE|awk '{print $1"/alert_"oraclesid".log"}' oraclesid=$ORACLE_SID`

@@ -1,0 +1,314 @@
+~~- 
+~~readme
+This is the setup script for an Active - Passive DML replication
+
+
+~~-----------------------------------------------------------------
+~~-
+~~-  Cleanup script
+~~-
+~~-----------------------------------------------------------------
+~~./cleanup.obey
+
+dblogin userid UNITADM password UNITADM
+stop *
+KILL replicat rep*
+delete replicat r*!
+delete checkpointtable!
+
+dblogin userid UNISADM password UNISADM
+KILL extract ext_*
+delete extract ext_*!
+KILL extract pmp_*
+delete extract pmp_*!
+pause 10
+stop mgr!
+-- Unregister ????
+
+sh sqlplus sys/oracle as sysdba < ./dirsql/drop_all.sql > ./dirsql/drop_all.out
+sh rm source_target_kill.sql
+sh rm table_count.sql
+
+sh rm $GGH/dirdat/*
+sh rm $GGH/dirrpt/*
+sh rm $GGH/dirdef/*
+sh rm $GGH/dirprm/*
+
+info all
+
+~~-----------------------------------------------------------------
+~~-
+~~-  SQL FILES
+~~-
+~~-----------------------------------------------------------------
+
+~~./dirsql/drop_all.sql
+rem drop_all.sql
+rem
+set echo off
+set feedback off
+set verify off
+set pagesize 0
+
+spool source_target_kill.sql
+
+select 'alter system kill session ''' || sid || ',' || serial# || ''' ;'
+from gv$session
+where username in ('UNISADM','UNITADM','UNISU1','UNITU1');
+
+spool off
+@source_target_kill.sql
+
+drop user UNISU1 cascade;
+drop user UNITU1 cascade;
+drop user UNISADM cascade;
+drop user UNITADM cascade;
+
+~~-----------------------------------------------------------------
+~~-
+~~-  Create users and sequences
+~~-
+~~-----------------------------------------------------------------
+~~./dirsql/users.sql
+rem users.sql
+rem Create database users.  Both users are in the same database.
+rem
+-- Script created using 11.1.1 documentation
+-- dba privilege must be provided to support DDL activity
+conn sys/oracle as sysdba
+
+alter database ADD SUPPLEMENTAL LOG DATA;
+
+create user UNISADM identified by UNISADM;
+grant connect, resource, dba to UNISADM;
+@./sequence.sql UNISADM
+
+create user UNITADM identified by UNITADM;
+grant connect, resource, dba to UNITADM;
+@./sequence.sql UNITADM
+
+create user UNISU1 identified by UNISU1;
+create user UNITU1 identified by UNITU1;
+grant connect, resource to UNISU1, UNITU1;
+
+@./dirsql/tables.sql UNISU1
+@./dirsql/tables.sql UNITU1
+@./dirsql/setup_check_for_class.sql
+
+
+~~./dirsql/setup_check_for_class.sql
+rem setup_check_for_class.sql
+rem Setup check of Oracle
+
+conn sys/oracle as sysdba
+set linesize 200
+set pagesize 45
+COLUMN LOG_GROUP_NAME HEADING 'Log Group' FORMAT A40
+COLUMN TABLE_NAME HEADING 'Table' FORMAT A30
+COLUMN ALWAYS HEADING 'Type of Log Group' FORMAT A30
+col SUPPLEMENTAL_LOG_DATA_MIN Heading 'Supp. Log Data Min' format a20
+col SUPPLEMENTAL_LOG_DATA_PK heading 'Supp Log PK' format a12
+col SUPPLEMENTAL_LOG_DATA_UI heading 'Supp Log UK' format a12
+-- At least one column must be 'YES'
+SELECT SUPPLEMENTAL_LOG_DATA_MIN, SUPPLEMENTAL_LOG_DATA_PK,
+SUPPLEMENTAL_LOG_DATA_UI FROM V$DATABASE;
+set feedback off
+set heading off
+spool table_count.sql
+select 'select count(*) '|| '"' || owner || '.'|| table_name ||'" from  '||
+	owner ||'.'|| table_name ||';'
+	from dba_tables
+	where (owner = 'UNISU1'
+	or owner = 'UNITU1')
+	and dropped = 'NO'; 
+	
+spool off	
+set Heading on
+set feedback on
+@table_count.sql
+
+~~./dirsql/tables.sql
+rem tables.sql
+set echo on
+connect &1/&1
+
+CREATE SEQUENCE s_dept_id;
+CREATE SEQUENCE s_emp_id;
+
+CREATE TABLE dept (
+ DEPTNO              NUMBER(10) NOT NULL,
+ DNAME               VARCHAR2(14),
+ LOC                 VARCHAR2(13),
+CONSTRAINT dept_PRIMARY_KEY PRIMARY KEY (DEPTNO));
+
+CREATE TABLE emp (
+ EMPNO               NUMBER(10) NOT NULL, 
+ ENAME               VARCHAR2(10),
+ JOB                 VARCHAR2(9),
+ MGR                 NUMBER(4) ,
+ HIREDATE            DATE,
+ SAL                 NUMBER(7,2),
+ COMM                NUMBER(7,2),
+ DEPTNO              NUMBER(10) NOT NULL,
+ CONSTRAINT emp_FOREIGN_KEY FOREIGN KEY (DEPTNO) REFERENCES dept (DEPTNO),
+ CONSTRAINT emp_PRIMARY_KEY PRIMARY KEY (EMPNO));
+
+
+~~./dirsql/insert_data.sql
+rem ./dirsql/insert_data.sql
+
+connect &1/&1
+rem insert rows into emp, Repostion the Extract and Replicat
+
+INSERT INTO dept VALUES (s_dept_id.NEXTVAL,'ACCOUNTING','NEW YORK');
+INSERT INTO dept VALUES (s_dept_id.NEXTVAL,'RESEARCH','DALLAS');
+INSERT INTO dept VALUES (s_dept_id.NEXTVAL,'SALES','CHICAGO');
+INSERT INTO dept SELECT s_dept_id.NEXTVAL,DNAME,LOC FROM dept; 
+INSERT INTO dept SELECT s_dept_id.NEXTVAL,DNAME,LOC FROM dept; 
+
+commit;
+INSERT INTO emp VALUES (s_emp_id.NEXTVAL,'GEORGE','PRESIDENT',NULL,'17-NOV-81',5000,NULL,1);
+INSERT INTO emp VALUES (s_emp_id.NEXTVAL,'BLAKE','MANAGER',7839,'1-MAY-81',2850,NULL,3);
+INSERT INTO emp VALUES (s_emp_id.NEXTVAL,'CLARK','MANAGER',7839,'9-JUN-81',2450,NULL,1);
+INSERT INTO emp VALUES (s_emp_id.NEXTVAL,'JONES','MANAGER',7839,'2-APR-81',2975,NULL,2);
+INSERT INTO emp VALUES (s_emp_id.NEXTVAL,'FORD','ANALYST',7566,'3-DEC-81',3000,NULL,2);
+INSERT INTO emp VALUES (s_emp_id.NEXTVAL,'SMITH','CLERK',7902,'17-DEC-80',800,NULL,2);
+INSERT INTO emp VALUES (s_emp_id.NEXTVAL,'ALLEN','SALESMAN',7698,'20-FEB-81',1600,300,3);
+INSERT INTO emp VALUES (s_emp_id.NEXTVAL,'Elvis','SALESMAN',7698,'22-FEB-81',1250,500,3);
+INSERT INTO emp VALUES (s_emp_id.NEXTVAL,'MARTIN','SALESMAN',7698,'28-SEP-81',1250,1400,3);
+INSERT INTO emp VALUES (s_emp_id.NEXTVAL,'SCOTT','ANALYST',7566,'09-DEC-82',3000,NULL,2);
+INSERT INTO emp VALUES (s_emp_id.NEXTVAL,'TURNER','SALESMAN',7698,'8-SEP-81',1500,0,3);
+INSERT INTO emp VALUES (s_emp_id.NEXTVAL,'ADAMS','CLERK',7788,'12-JAN-83',1100,NULL,2);
+INSERT INTO emp VALUES (s_emp_id.NEXTVAL,'JAMES','CLERK',7698,'3-DEC-81',950,NULL,3);
+INSERT INTO emp VALUES (s_emp_id.NEXTVAL,'MILLER','CLERK',7782,'23-JAN-82',1300,NULL,1);
+update emp set comm = comm + 1;
+commit;
+INSERT INTO emp SELECT s_emp_id.NEXTVAL, ENAME, JOB,MGR,HIREDATE,SAL,COMM,DEPTNO FROM emp;
+INSERT INTO emp SELECT s_emp_id.NEXTVAL, ENAME, JOB,MGR,HIREDATE,SAL,COMM,DEPTNO FROM emp;
+INSERT INTO emp SELECT s_emp_id.NEXTVAL, ENAME, JOB,MGR,HIREDATE,SAL,COMM,DEPTNO FROM emp;
+INSERT INTO emp SELECT s_emp_id.NEXTVAL, ENAME, JOB,MGR,HIREDATE,SAL,COMM,DEPTNO FROM emp;
+COMMIT;
+INSERT INTO emp SELECT s_emp_id.NEXTVAL, ENAME, JOB,MGR,HIREDATE,SAL,COMM,DEPTNO FROM emp
+where rownum < 50000;
+COMMIT;
+INSERT INTO emp SELECT s_emp_id.NEXTVAL, ENAME, JOB,MGR,HIREDATE,SAL,COMM,DEPTNO FROM emp
+where rownum < 100000;
+COMMIT;
+ INSERT INTO emp SELECT s_emp_id.NEXTVAL, ENAME, JOB,MGR,HIREDATE,SAL,COMM,DEPTNO FROM emp
+where rownum < 100000;
+COMMIT;
+ INSERT INTO emp SELECT s_emp_id.NEXTVAL, ENAME, JOB,MGR,HIREDATE,SAL,COMM,DEPTNO FROM emp
+where rownum < 100000;
+COMMIT;
+ INSERT INTO emp SELECT s_emp_id.NEXTVAL, ENAME, JOB,MGR,HIREDATE,SAL,COMM,DEPTNO FROM emp
+where rownum < 100000;
+COMMIT;
+
+~~-----------------------------------------------------------------
+~~-
+~~- PARAMETERS FILES
+~~-
+~~-----------------------------------------------------------------
+
+~~-----------------------------------------------------------------
+~~-
+~~-  MGR file
+~~-
+~~-----------------------------------------------------------------
+~~./backup/mgr.prm
+-- mgr.prm
+-- Manager parameter file
+PORT 8141 
+LAGCRITICALSECONDS 60
+LAGINFOMINUTES 60
+LAGREPORTMINUTES 10
+
+~~-----------------------------------------------------------------
+~~-
+~~-  Extract parameter file
+~~-
+~~-----------------------------------------------------------------
+~~./backup/ext_1.prm
+-- ext_1a.prm
+-- Extract parameter file
+EXTRACT ext_1
+USERID "UNISADM", PASSWORD "UNISADM"
+TRANLOGOPTIONS DBLOGREADER
+-- TRANLOGOPTIONS ASMUSER ggasm@ASM, ASMPASSWORD ggasm
+EXTTRAIL ./dirdat/et
+DISCARDFILE dirrpt/ext_1.dsc , APPEND
+REPORTCOUNT EVERY 10000 RECORDS, RATE
+TABLE UNISU1.*;
+
+~~-----------------------------------------------------------------
+~~-
+~~-  Data Pump parameter file
+~~-
+~~-----------------------------------------------------------------
+~~./backup/pmp_1.prm
+-- pmp_1.prm
+-- Extract data pump parameter file
+EXTRACT pmp_1
+PASSTHRU
+RMTHOST localhost,  MGRPORT 8141 
+RMTTRAIL ./dirdat/rt
+WILDCARDRESOLVE DYNAMIC
+TABLE UNISU1.*;
+
+~~-----------------------------------------------------------------
+~~-
+~~-  Replicat parameter file
+~~-
+~~-----------------------------------------------------------------
+~~./backup/rep_1.prm
+-- rep_1.prm
+-- Replicat parameter file
+REPLICAT rep_1
+USERID "UNITADM", PASSWORD "UNITADM"
+DISCARDFILE dirrpt/rep_1.dsc , APPEND
+REPORTCOUNT EVERY 10000 RECORDS, RATE
+ASSUMETARGETDEFS
+MAP UNISU1.*, TARGET UNITU1.*;
+
+~~-----------------------------------------------------------------
+~~-
+~~- MAIN TEST OBEY FILE
+~~-
+~~-----------------------------------------------------------------
+~~test.ob
+
+sh $GGH/ggsci < $GGH/cleanup.obey
+
+create subdirs
+
+-- sh mkdir ./backup
+sh cp ./backup/*.prm ./dirprm
+
+--Create users, tables and sequences
+sh sqlplus /nolog < ./dirsql/users.sql
+
+start mgr
+
+dblogin userid UNITADM password UNITADM
+add checkpointtable UNITADM.checkpointtable
+ADD REPLICAT rep_1, EXTTRAIL ./dirdat/rt, checkpointtable UNITADM.checkpointtable
+ALTER REPLICAT rep_1, extrba 0
+START REPLICAT rep_1
+
+dblogin userid UNISADM password UNISADM
+ADD TRANDATA UNISU1.*
+
+-- Add extract and trails back
+ADD EXTRACT ext_1, TRANLOG, BEGIN NOW
+ADD EXTTRAIL ./dirdat/et, EXTRACT ext_1, Megabytes 5
+START EXTRACT ext_1
+
+ADD EXTRACT pmp_1, EXTTRAILSOURCE ./dirdat/et
+ADD RMTTRAIL ./dirdat/rt, EXTRACT pmp_1, Megabytes 5
+START EXTRACT pmp_1
+
+info all 
+sh sqlplus UNISU1/UNISU1 < ./dirsql/insert_data.sql > ./dirsql/insert_data.out 
+pause 10
+sh sqlplus UNITADM/UNITADM < ./table_count.sql
+sh rm ./table_count.sql

@@ -1,0 +1,80 @@
+#!/usr/bin/ksh
+clear
+echo AIX version ...
+# Decide which nmon version to run and run it
+if [[ -f /usr/bin/oslevel ]]
+then
+	os=`/usr/bin/oslevel`
+	case $os in 
+	   6.1*) 	required=nmon12e_aix61 ;;
+	   5.3*) 	required=nmon_aix53 ;;
+	   5.2*) 	required=nmon_aix52 ;;
+	   5.1*) 	required=nmon12e_aix51 ;;
+	   4.3.3*) 	required=nmon_aix433 ;;
+	   4.3.2*) 	required=nmon_aix432 ;;
+	   4.2*) 	required=nmon_aix420 ;;
+	   4.1*) 	required=nmon_aix415 ;;
+	esac
+
+# Decide which nmon ML/TL 
+	if [[ $required = "nmon_aix52" ]]
+	then
+		ml=`/usr/bin/oslevel -r | cut -c 6,7`
+		case $ml in 
+		01) required=nmon12e_aix522 ;;
+		02) required=nmon12e_aix522 ;;
+# fall back to the older nmon release for these 2 problem releases
+		03) required=nmon12e_aix51 ;;
+		04) required=nmon12e_aix51 ;;
+		05) required=nmon12e_aix527 ;;
+		06) required=nmon12e_aix527 ;;
+		07) required=nmon12e_aix527 ;;
+		08) required=nmon12e_aix527 ;;
+		*)  required=nmon12e_aix527 ;;
+		esac
+	fi
+# Decide which nmon ML/TL 
+        if [[ $required = "nmon_aix53" ]]
+        then
+                ml=`/usr/bin/oslevel -r | cut -c 6,7`
+                case $ml in
+                00) required=nmon12e_aix530 ;;
+                01) required=nmon12e_aix530 ;;
+                02) required=nmon12e_aix530 ;;
+                03) required=nmon12e_aix530 ;;
+                04) required=nmon12e_aix534 ;;
+                05) required=nmon12e_aix535 ;;
+                06) required=nmon12e_aix536 ;;
+                07) required=nmon12e_aix537 ;;
+                esac
+        fi
+
+	clear
+	echo AIX version $os and starting up nmon $required
+	# Try current directory
+	# Try current directory with ./
+	if [[ -e ./$required ]]
+	then
+		echo ./$required $*
+		exec ./$required $*
+	fi
+	if [[ -e $required ]]
+	then
+		echo $required $*
+		exec $required $*
+	fi
+	# Try same directory as this script
+	if [[ -e `dirname $0`/$required ]]
+	then
+		echo `dirname $0`/$required $*
+		exec `dirname $0`/$required $*
+	fi
+	# Try searching your path
+	if [[ -e `whence $required` ]]
+	then
+		echo `whence $required` $*
+		exec `whence $required` $*
+	fi
+	echo Giving up - where did you put $required ?
+fi
+

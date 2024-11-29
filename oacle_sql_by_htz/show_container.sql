@@ -1,0 +1,2 @@
+--show con_name;
+SELECT SYS_CONTEXT ('USERENV', 'CON_NAME') FROM DUAL;

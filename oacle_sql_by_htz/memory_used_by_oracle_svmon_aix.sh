@@ -1,0 +1,1 @@
+svmon -P `ps -ef|grep oracle|awk '{print $2}'` -O filtercat=exclusive|grep '[0-9]'|grep -v Pid|grep -v "process does not exist"|awk '{sum +=$3} END {print sum*4/1024 "MB"}'

@@ -1,0 +1,58 @@
+set lines  200
+set pages 20000
+set verify off
+set serveroutput on size 1000000
+undefine sqlid;
+undefine child_number;
+set serveroutput on size 1000000
+DECLARE
+  LVC_SQL_TEXT      VARCHAR2(4000);
+  LVC_ORIG_SQL_TEXT VARCHAR2(4000);
+  LN_CHILD          NUMBER := 10000;
+  LVC_BIND          VARCHAR2(200);
+  CURSOR C1 IS
+    SELECT CHILD_NUMBER, NAME, POSITION, DATATYPE_STRING, VALUE_STRING
+      FROM V$SQL_BIND_CAPTURE
+     WHERE SQL_ID = '&&1' AND CHILD_NUMBER=NVL('&childnumber',CHILD_NUMBER)
+     ORDER BY CHILD_NUMBER, POSITION;
+BEGIN
+  SELECT SQL_FULLTEXT
+    INTO LVC_ORIG_SQL_TEXT
+    FROM V$SQL
+   WHERE SQL_ID = '&&1'
+     AND ROWNUM = 1;
+  FOR R1 IN C1 LOOP
+    IF (R1.CHILD_NUMBER <> LN_CHILD) THEN
+      IF LN_CHILD <> 10000 THEN
+        DBMS_OUTPUT.PUT_LINE(LVC_SQL_TEXT);
+        DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------');
+      END IF;
+      LN_CHILD     := R1.CHILD_NUMBER;
+      LVC_SQL_TEXT := LVC_ORIG_SQL_TEXT;
+    END IF;
+    
+    IF R1.NAME LIKE ':SYS_B_%' THEN
+      LVC_BIND := ':"'||substr(R1.NAME,2)||'"';
+    ELSE 
+      LVC_BIND := R1.NAME;
+    END IF;
+    
+    
+    IF r1.VALUE_STRING IS NOT NULL THEN 
+      IF R1.DATATYPE_STRING = 'NUMBER' THEN
+        LVC_SQL_TEXT := REGEXP_REPLACE(LVC_SQL_TEXT, LVC_BIND, R1.VALUE_STRING,1,1,'i');
+      ELSIF R1.DATATYPE_STRING LIKE 'VARCHAR%' THEN
+        LVC_SQL_TEXT := REGEXP_REPLACE(LVC_SQL_TEXT, LVC_BIND, ''''||R1.VALUE_STRING||'''',1,1,'i');
+      ELSE
+        LVC_SQL_TEXT := REGEXP_REPLACE(LVC_SQL_TEXT, LVC_BIND, ''''||R1.VALUE_STRING||'''',1,1,'i');
+      END IF;
+    ELSE 
+       LVC_SQL_TEXT := REGEXP_REPLACE(LVC_SQL_TEXT, LVC_BIND, 'NULL',1,1,'i');
+    END IF;
+  END LOOP;
+  DBMS_OUTPUT.PUT_LINE(LVC_SQL_TEXT);
+END;
+/
+
+undefine sqlid
+undefine child_number;

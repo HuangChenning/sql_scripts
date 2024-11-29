@@ -1,0 +1,23 @@
+#!/bin/sh
+#
+MAKE=/usr/bin/make
+ECHO=/bin/echo
+if [ $# -lt 1 ]; then
+  $ECHO "Usage: relink_rac_on <Oracle home>"
+  exit 1
+fi
+ORACLE_HOME=$1
+if [ $# -gt 1 ]; then
+  MAKE=$2
+else
+  $ECHO "Make path has not been passed from command line."
+fi
+$ECHO "Checking for writable permission on $ORACLE_HOME/lib and $ORACLE_HOME/bin."
+if [ -w $ORACLE_HOME/bin -a -w $ORACLE_HOME/lib ]; then
+  $ECHO "running rac_on make target.."
+  $MAKE -f $ORACLE_HOME/rdbms/lib/ins_rdbms.mk ORACLE_HOME=$ORACLE_HOME rac_on ioracle
+  exit $?
+else
+  $ECHO "$ORACLE_HOME/lib and $ORACLE_HOME/bin directories are not writable, hence skipping relink operation."
+fi
+exit 0

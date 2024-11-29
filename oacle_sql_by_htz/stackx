@@ -1,0 +1,524 @@
+#!/bin/ksh
+#set -xv
+# stackx.sh (c) 2005 Oracle Corp. all rights reserved
+# version 1.2
+# author: Roger Snowden
+# Usage: ./stackx [debugger] <corefilename>
+#
+# Extracts stack trace from core file
+# Generates report
+# supports adb, sdb, dbx, gdb debuggers
+# rev history:
+# Feb 11, 2005 rsnowden: initial cut 0.1
+# May 17, 2005 rsnowden: add thread logic
+#                        fix strings grep for trailing whitespace
+#                        force gdb if available
+# May 19, 2005 rsnowden: add default pstack logic
+# May 19, 2005 rsnowden: allow requested debugger
+# May 20, 2005 rsnowden: added pmap, pflags for SunOS
+# May 23, 2005 rsnowden: fixing strings "find executable" logic, egrep
+# Jun3 2, 2005 rsnowden: rename to stackx.sh
+# Dec 33, 2005 rsnowden: cleanup
+# Feb 01, 2006 rsnowden: fix strings to use -a option
+# Feb 02, 2006 rsnowden: fix regex to allow executable in subdir: dirname/program style
+# Feb 02, 2006 rsnowden: remove array usage for portability, combine findExec into main loop
+# Feb 10, 2006 rsnowden: fix here doc expansion of adb $c, $c commands
+# Feb 10, 2006 rsnowden: fix strings cmd to handle 2 char binaries
+# Mar 15, 2006 rsnowden: make name 'stackx', cleanup usage, ready to release
+# Sep 08, 2006 rsnowden: fix AIX 'which' and 'file' platform differences
+# May 02, 2007 rsnowden: gdb, dbx only: add register info, cleanup prompt output
+#                        minor syntax bugs (-gt operator)
+#                        fix AIX, 'file' output leading ' ' on prog_name
+#                        all debuggers: standardized debug tags in xml-ish format
+#                        adb: added fp reg, mem map, vars
+#                        solaris: pstack, pmap, pflags tags made consistent w/ xml-ish
+#                        solaris: pflags: added -r to get registers from each thread
+#                        dbx: added redundant printregs command to accomodate version ambiguity
+# Aug 22, 2007 rsnowden  increment expression fixed to use `expr...`, all platforms
+#
+
+#######################
+##
+## getStack
+##
+## This function is passed a fully qualified executable name and, for the
+## debugger we are using, try to extract a stack trace
+## Note: gdb has ability to get traces for multi-threaded programs
+## We try to get thread stack traces if possible. A single-threaded executable
+## should also work, just looks like a single thread is all.
+
+function getStack {
+executable=$1
+  if [ -x "$executable" ]; then
+    ## local defs to handle spurious var expansion, esp for adb
+    C=\$C
+    c=\$c
+    r=\$r
+    f=\$f
+    m=\$m
+    v=\$v
+
+    case $debugger in
+      gdb )
+        print "<debugging session>"
+        $_debug -quiet $executable $corename << End
+        set pagination off
+        set prompt 
+        shell echo "<stack>"
+        thread apply all where
+        bt
+        shell echo "</stack>"
+        shell echo "<registers>"
+        info all-registers
+        shell echo "</registers>"
+        q
+End
+        print "</debugging session>"
+      ;;
+      mdb )
+        print "<debugging session>"
+        $_debug $executable $corename << End
+        !echo "<status>"
+        ::version
+        ::status
+	!echo "</status>"
+        !echo "<stack>"
+        ::walk thread | ::findstack
+        !echo "</stack>"
+	!echo "<registers>"
+        ::regs
+	!echo "</registers>"
+End
+        print "</debugging session>"
+      ;;
+      adb )
+          print "<debugging session>"
+          $_debug $executable $corename << End
+          !echo "<stack>"
+          $c
+	  !echo "</stack>"
+          !echo "<registers>"
+          $r
+	  $f
+	  !echo "</registers>"
+	  !echo "<memory map>"
+	  $m
+	  !echo "</memory map>"
+	  !echo "<variables>"
+	  $v
+	  !echo "</variables>"
+End
+        print "</debugging session>"
+      ;;
+      sdb )
+        print "<debugging session>"
+        $_debug $executable $corename << End
+        t
+        quit
+End
+        print "</debugging session>"
+      ;;
+      dbx )
+	print "<debugging session>"
+	$_debug $executable $corename << End
+	set prompt
+	print "<stack>"
+	where
+	print "</stack>"
+	print "<registers>"
+	registers
+        printregs
+	print "</registers>"
+	quit
+End
+	print "</debugging session>"
+      ;;
+    esac
+  fi
+}
+##
+## end getStack
+#######################
+
+#######################
+##
+## findMeADebugger
+##
+## here we attempt to find a worthy debugger.
+## user might have passed a fully qualified name via command line
+## if so, there would be two positional parameters instead of just one
+## ie, stackx.sh gdb corefile
+## versus stackx.sh corefile
+## So, if one was passed, prefer it if it is available
+## otherwise, do our best to find one
+## if one cannot be found, tough noogies. no can extract stack
+##
+
+function findMeADebugger {
+
+# see what debuggers are available
+## Iif we are on SunOS, pstack is nice and simple. Linux ver wont work for core
+## And, if we have pstack, maybe we have pmap and pflags too
+if [[ "$osname" = "SunOS" ]]; then
+  pstack=`which pstack | grep -v '^no'`
+  pmap=`which pmap | grep -v '^no'`
+  pflags=`which pflags | grep -v '^no'`
+fi
+if [[ -x "$pstack" && ! -d "$pstack" ]]; then
+  _debug=$pstack
+  if [[ -x "$pmap" && ! -d "$pmap" ]]; then
+    _pmap=$pmap
+  fi
+  if [[ -x "$pflags" && ! -d "$pflags" ]]; then
+    _pflags=$pflags
+  fi
+## so, no special case now, just find a debugger
+else
+  ## try common location for gdb-- the next preferred debugger
+  if [ -x /usr/local/bin/gdb ]; then
+   _debug="/usr/local/bin/gdb"
+  ## otherwise, just try to find one
+  else
+  ## Select debugger by priority
+  ## prefer, in order, gdb;dbx;adb;sdb
+    case $osname in
+      SunOS )
+        _debug=`which gdb | grep -v '^no'`
+        if [ -z "$_debug" ]; then
+          _debug=`which dbx | grep -v '^no'`
+          if [ -z "$_debug" ]; then
+            _debug=`which adb | grep -v '^no'`
+            if [ -z "$_debug" ]; then
+              _debug=`which sdb | grep -v '^no'`
+            fi
+          fi
+        fi
+      ;;
+      HP-UX )
+        _debug=`which gdb | grep -v '^no'`
+        if [ -z "$_debug" ]; then
+          _debug=`which dbx | grep -v '^no'`
+          if [ -z "$_debug" ]; then
+            _debug=`which adb | grep -v '^no'`
+            if [ -z "$_debug" ]; then
+              _debug=`which sdb | grep -v '^no'`
+            fi
+          fi
+        fi
+      ;;
+      AIX )
+        _debug=`which gdb | grep -v 'There is no '`
+        if [ -z "$_debug" ]; then
+          _debug=`which dbx | grep -v 'There is no '`
+          if [ -z "$_debug" ]; then
+            _debug=`which adb | grep -v 'There is no '`
+            if [ -z "$_debug" ]; then
+              _debug=`which sdb | grep -v 'There is no '`
+            fi
+          fi
+        fi
+      ;;
+      OSF1 )
+        _debug=`which gdb | grep -v '^no'`
+        if [ -z "$_debug" ]; then
+          _debug=`which dbx | grep -v '^no'`
+          if [ -z "$_debug" ]; then
+            _debug=`which adb | grep -v '^no'`
+            if [ -z "$_debug" ]; then
+              _debug=`which sdb | grep -v '^no'`
+            fi
+          fi
+        fi
+      ;;
+      Linux )
+        _debug=`which gdb | grep -v '^no'`
+        if [ -z "$_debug" ]; then
+          _debug=`which dbx | grep -v '^no'`
+          if [ -z "$_debug" ]; then
+            _debug=`which adb | grep -v '^no'`
+            if [ -z "$_debug" ]; then
+              _debug=`which sdb | grep -v '^no'`
+            fi
+          fi
+        fi
+      ;;
+    esac
+
+  fi
+fi
+
+}
+##
+## end findMeADebugger
+#######################
+
+#######################
+##
+## printUsage
+##
+## print usage message
+
+function printUsage {
+  print "Usage: stackx [debugger] <corefilename>"
+}
+##
+## end printUsage
+#######################
+
+##############################################
+##############################################
+## main code starts here
+##
+
+# check out passed arg(s), see if reasonable
+if [[ $# = 0 || $# -gt 2 ]]; then
+  ## invalid args passed, show usage and bailout
+  print "Wrong number of parameters."
+  printUsage
+  exit 1
+fi
+
+## okay, something passed, see what it was
+if [[ $# = 2 ]]; then
+  ## two args passed, first must be debugger name
+  reqDebugger=$1
+  corename=$2
+elif [[ $# = 1 ]]; then
+  ## only 1 passed, corename only
+  reqDebugger=""
+  corename=$1
+fi
+
+if [ -z $corename ]; then
+  print "No corefile name passed"
+  print "Usage: stackx.sh [debugger] <corename>"
+  exit 1
+fi
+if [ ! -f $corename ]; then
+  print "'$corename' not found. Check filename and path."
+  printUsage
+  exit 1
+fi
+if [ ! -s $corename ]; then
+  print "'$corename' is empty."
+  printUsage
+  exit 1
+fi
+if [ ! -r $corename ]; then
+  print "'$corename' is not readable."
+  printUsage
+  exit 1
+fi
+#
+
+# find out what platform we are on
+osname=`uname -s`
+
+# now try to extract the program name that produced the core
+# prog name is last token in report, enclosed in ''
+## naturally, aix is different, so switch all the cases
+    case $osname in
+      SunOS )
+        prog_name=`file $corename | awk -F"'" '{print $2}'`
+      ;;
+      HP-UX )
+        prog_name=`file $corename | awk -F"'" '{print $2}'`
+      ;;
+      AIX )
+        prog_name=`file $corename | awk -F"," '{print $2}'`
+      ;;
+      OSF1 )
+        prog_name=`file $corename | awk -F"'" '{print $2}'`
+      ;;
+      Linux )
+        prog_name=`file $corename | awk -F"'" '{print $2}'`
+      ;;
+    esac
+
+# take care of PITA special cases. Different is not always better, IBM
+# trim off leading ' ' from program name, if it is there
+prog_name=`print $prog_name | sed 's/ //g'`
+
+# for each of main os names, find version, kernel bits
+case $osname in
+  SunOS )
+    osver=`uname -r`
+    junk=`isainfo -v |grep '64' | wc -l`
+    if [[ $junk -gt 0 ]]; then
+      cpu_bits=64
+    else
+      cpu_bits=32
+    fi
+  ;;
+  HP-UX )
+    osver=`uname -r`
+    junk=`getconf KERNEL_BITS |grep '64' | wc -l`
+    if [[ $junk -gt 0 ]]; then
+      cpu_bits=64
+    else
+      cpu_bits=32
+    fi
+  ;;
+  AIX )
+    osver=`oslevel`
+    junk=`lslpp -l bos.64bit 2>&1|grep '64bit' | wc -l`
+    if [[ $junk -gt 0 ]]; then
+      cpu_bits=64
+    else
+      cpu_bits=32
+    fi
+  ;;
+  OSF1 )
+    osver=`uname -r`
+    cpu_bits=64
+  ;;
+  Linux )
+    osver=`uname -s -r | awk '{print $2}'`
+    junk=`cat /proc/cpuinfo | egrep 'IA\-64|Itanium|x86\-64' | wc -l`
+    if [[ $junk -gt 0 ]]; then
+      cpu_bits=64
+    else
+      cpu_bits=32
+    fi
+  ;;
+esac
+
+## debug only
+#print "osname: " $osname
+#print "osver: " $osver
+#print "bits: " $cpu_bits
+
+## now get a debugger to use
+## if one requested, see if it is in our path
+if [[ ! -z $reqDebugger ]]; then
+  reqDbgPath=`which $reqDebugger | grep -v '^no'`
+fi
+
+## if in path, see if it is executable
+if [[ -x "$reqDbgPath" ]]; then
+  _debug=$reqDbgPath
+## and if we actually requested a special one...
+else
+  if [[ ! -z "$reqDebugger" ]]; then
+    ## break the bad news, no such debugger
+    print "Requested debugger:" \'$reqDebugger\' "not in path or not executable."
+    print "Will try to find a usable debugger."
+  fi
+  ## in any case, we have our ways...
+  findMeADebugger
+fi
+
+debugger=`print $_debug | awk -F"/" '{print $NF}'`
+if [ -z $debugger ]; then
+  print "No usable debugger found."
+  exit 1
+fi
+
+## debug only
+## if user requested one, explain situation
+#if [[ ! -z $reqDebugger && "$_debug" != "$reqDebugger" ]]; then
+#  print $_debug "found."
+#fi
+
+#
+# Now we know what we got here. Start the report
+# List the environment, what we know so far
+print "######################################################################"
+print "stackx core / stack trace extraction utility"
+print "version 1.2 (c) 2005, 2006, 2007 Oracle Corp. all rights reserved."
+print "Reporting: " `date`
+print "Machine  : " `uname -a`
+print "CPU Bits : " $cpu_bits
+print "Core file: " $corename
+print "Core date: " `ls -l $corename | awk '{print $6 " " $7 " " $8}'`  
+print "Tool(s)  : " $_debug $_pmap $_pflags
+print "Program  : " $prog_name
+print "Core extraction section follows"
+print "######################################################################"
+
+## if pstack is not available, or user *insists* on some debugger...
+if [[ $debugger != "pstack" ]]; then
+
+  # strings command gets all strings from core file
+  # we want those with '/' and  prog name at end, '/' path sep at begin
+  # or, dirname '/' prog name in case of subdir to current dir
+  # sort -u removes dupes, but we could still have multiple apparent executables
+  # so, stuff them into an array and check them out individually
+
+  # establish regex pattern to find possible executable names in core file
+#  pattern="^((\.\/|\/).+\/"$prog_name"|(\.\/|\/)"$prog_name")"
+   pattern="^(.*\/)?"$prog_name$
+  ## and explicitly init counter to zero
+  execCount=0
+
+  ## One must suppose it is possible for multiple executable names to be found.
+  ## If so, we must individually use them and try to get stack trace for each.
+  ## Typically, however we will have a list of possible executables, so we test them
+  ## individually, and count them. If we find zero, then there are no exec to use
+  ## in which case, we give up and exit this script
+
+  ## get core names, loop thru and test if each is an executable, count them
+  for thisExec in `strings -a -n2 $corename | egrep -e $pattern | awk '{print $1}' | sort -u`
+  do
+   if [[ -x "$thisExec" && ! -d "$thisExec" ]]; then
+    execCount=`expr ${execCount} + 1`
+   fi
+  done
+  
+  ## If there are no executables found, report this sad fact and end this script.
+  if [[ $execCount -eq 0 ]]
+  then
+    print "No executables found for $prog_name in corefile $corename"
+    exit 1
+
+  ## Otherwise, individually try to extract a stack trace.
+  else
+    ## as before, get a list of exec names, test individually. We already established there is
+    ## at least one, with same loop/test. This time, attempt stack extraction for each good one
+    for thisExec in `strings -a -n2 $corename | egrep -e $pattern | awk '{print $1}' | sort -u`
+    do
+    ## include executables, but exclude directories
+     if [[ -x "$thisExec" && ! -d "$thisExec" ]]; then
+       execCount=`expr ${execCount} + 1`
+       print "For:" $thisExec " executable file found in core,"
+       print "a core extraction will be attempted..."
+       getStack $thisExec
+     fi
+    done
+  fi
+
+else ## if $debugger ... so, we use pstack after all
+  ## We are using pstack, just call the code and be done with it.
+  ## See why pstack is preferred?
+  print "<debugging>"
+  print "<stack>"
+  $_debug $corename
+  print "</stack>"
+  ## if we found pmap, run it
+  if [[ -x "$_pmap" ]]; then
+    print "<memory map>"
+    print "######################################################################"
+    print "PMAP OUTPUT"
+    $_pmap $corename
+    print "</memory map>"
+  fi
+  ## if we found pflags, run it too
+  if [[ -x "$_pflags" ]]; then
+    print "<flags>"
+    print "######################################################################"
+    print "PFLAGS OUTPUT"
+    $_pflags -r $corename
+    print "</flags>"
+  fi
+  print "</debugging>"
+
+fi
+
+print "######################################################################"
+
+print "stackx done."
+
+## end stackx.sh
+##
+##############################################
+##############################################

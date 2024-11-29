@@ -1,0 +1,9 @@
+exec dbms_scheduler.drop_job('gather_stats_job');
+execute dbms_scheduler.drop_window_group('MAINTENANCE_WINDOW_GROUP');
+execute dbms_scheduler.drop_window('WEEKEND_WINDOW');
+execute dbms_scheduler.drop_window('WEEKNIGHT_WINDOW');
+execute dbms_scheduler.drop_program('gather_stats_prog');
+execute dbms_scheduler.drop_job_class('AUTO_TASKS_JOB_CLASS');
+execute dbms_resource_manager.create_pending_area;
+execute dbms_resource_manager.delete_consumer_group('AUTO_TASK_CONSUMER_GROUP');
+execute dbms_resource_manager.submit_pending_area;

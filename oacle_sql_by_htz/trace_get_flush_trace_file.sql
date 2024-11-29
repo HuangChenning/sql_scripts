@@ -1,0 +1,1 @@
+select 'oradebug setospid '||spid||';'||chr(10)||' oradebug close_trace;'||chr(10)||'oradebug flush;'||chr(10) from v$process where spid is not null;

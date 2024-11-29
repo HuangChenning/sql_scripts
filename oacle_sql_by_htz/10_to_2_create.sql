@@ -1,0 +1,18 @@
+CREATE OR REPLACE FUNCTION NUMBER_TO_BIT(V_NUM NUMBER)
+RETURN VARCHAR IS V_RTN VARCHAR(1000);
+  V_N1  NUMBER;
+  V_N2  NUMBER;
+BEGIN
+V_N1 := V_NUM;
+    LOOP
+      V_N2  := MOD(V_N1, 2);
+      V_N1  := ABS(TRUNC(V_N1 / 2));
+      V_RTN := TO_CHAR(V_N2) || V_RTN;
+      EXIT WHEN V_N1 = 0;
+    END LOOP;
+ SELECT lpad(V_RTN,8,0)
+    INTO   V_RTN
+    FROM dual;
+return V_RTN;
+end;
+/

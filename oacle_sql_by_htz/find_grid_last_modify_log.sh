@@ -1,0 +1,1 @@
+date;  find $ORACLE_HOME/log -type f  -printf "%TY-%Tm-%Td %TH:%TM:%TS  %h/%f\n" | sort -n -t " " -k 1,2| tail -20

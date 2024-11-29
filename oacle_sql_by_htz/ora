@@ -1,0 +1,5445 @@
+#!/bin/ksh
+#
+# Copyright (c) 1998, 2002, Oracle Corporation.  All rights reserved.
+#
+
+version()
+{
+  if [ -f $ORA_TMP/ora_version_${ORACLE_SID} ]; then
+    VER=`cat $ORA_TMP/ora_version_${ORACLE_SID}`
+    set $VER
+    VERSION=$1
+    VERSION_SHORT=$2
+    VERSION_MAIN=$3
+    SWA_HISTOGRAM=$4
+    PGA_ADVICE=$5
+    SWA_ACTIVE_TABLESPACE=$6
+
+    if [ "$VERSION" = "" -o "$VERSION_SHORT" = "" -o "$VERSION_MAIN" = "" ]; then
+      rm -f $ORA_TMP/ora_version_${ORACLE_SID}
+      version
+    fi
+
+  else
+    #
+    # Check version
+    # 
+    sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected" > $ORA_TMP/ver$$
+  
+      connect $DBUSER
+    
+      select 'SQL_WORKAREA_HISTOGRAM'||'_EXISTS' view_exists 
+      from all_views where view_name 
+           like '%SQL_WORKAREA_HISTOGRAM%' and rownum = 1;
+  
+      select 'PGA_TARGET_ADVICE'||'_EXISTS' view_exists 
+      from all_views where view_name 
+           like '%PGA_TARGET_ADVICE%' and rownum = 1;
+  
+     select 'SQL_WORKAREA_ACTIVE_TABLESPACE'||'_EXISTS' col_exists
+     from ALL_TAB_COLUMNS 
+     where COLUMN_NAME = 'TABLESPACE' 
+           AND TABLE_NAME = 'V_\$SQL_WORKAREA_ACTIVE';
+  
+     select '###' || version || '###' version
+     from PRODUCT_COMPONENT_VERSION 
+     where PRODUCT like 'Oracle%';
+!
+  
+    grep SQL_WORKAREA_HISTOGRAM_EXISTS $ORA_TMP/ver$$ > /dev/null 2>&1 
+    if [ $? -eq 0 ]; then
+      SWA_HISTOGRAM=1
+    else
+      SWA_HISTOGRAM=0
+    fi
+  
+    grep PGA_TARGET_ADVICE_EXISTS $ORA_TMP/ver$$ > /dev/null 2>&1 
+    if [ $? -eq 0 ]; then
+      PGA_ADVICE=1
+    else
+      PGA_ADVICE=0
+    fi
+  
+    grep SQL_WORKAREA_ACTIVE_TABLESPACE_EXISTS $ORA_TMP/ver$$ > /dev/null 2>&1 
+    if [ $? -eq 0 ]; then
+      SWA_ACTIVE_TABLESPACE=1
+    else
+      SWA_ACTIVE_TABLESPACE=0
+    fi
+  
+    VERSION=`cat $ORA_TMP/ver$$ | grep '###' | sed -e 's/^###\(.*\)###$/\1/g'`
+    VERSION_SHORT=`echo $VERSION | sed -e 's/^\([0-9]*\)\.\([0-9]*\)\..*$/\1\.\2/g'`
+    VERSION_MAIN=`echo $VERSION | sed -e 's/^\([0-9]*\).*$/\1/g'`
+
+    #
+    # Only save when OK.
+    # 
+    if [ "$VERSION" != "" -a "$VERSION_SHORT" != "" -a "$VERSION_MAIN" != "" ]; then
+      echo "$VERSION $VERSION_SHORT $VERSION_MAIN $SWA_HISTOGRAM $PGA_ADVICE $SWA_ACTIVE_TABLESPACE" > $ORA_TMP/ora_version_${ORACLE_SID}
+    fi
+#    rm -f $ORA_TMP/ver$$
+  fi
+}
+
+usage()
+{
+  if [ "$ORA_USE_HASH" = "1" ]; then
+    SQLID='<hash_val>';
+  else
+    SQLID=' <sql_id> ';
+  fi
+
+  echo "$1
+
+  Usage: $EXEC_NAME [-u user] [-i instance#] <command> [<arguments>]
+    General
+      -u user/pass                  use USER/PASS to log in
+      -i instance#                  append # to ORACLE_SID
+      -sid <sid>                    set ORACLE_SID to sid
+      -top #                        limit some large queries to on # rows
+
+      - repeat <interval> <count|forever> <ora command>
+                                    Repeat an coomand <count> time
+                                    Sleep <interval> between two calls
+    Command are:
+
+
+      - execute:                    cursors currently being executed
+      - longops:                    run progression monitor
+      - sessions:                   currently open sessions
+      - stack <os_pid>              get process stack using oradebug
+      - cursors [all] <match_str>:  [all] parsed cursors
+      - sharing <sql_id>:           print why cursors are not shared
+      - events [px]:                events that someone is waiting for
+      - ash <minutes_from_now>
+            [duration]
+            [-f <file_name>]        active session history for specified period
+                                    e.g. 'ash 30' to display from [now - 30min] 
+                                          to [now]
+                                    e.g. 'ash 30 10 -f foo.txt' to display a 10 
+                                          minutes period from [now - 30min] 
+                                          and store the result in file foo.txt
+      - ash_wait_graph <minutes_from_now>
+            [duration]
+            [-f <file_name>]        PQ event wait graph using ASH data
+                                    Arguments are the same as for ash
+                                    except that the output must be shown
+                                    with the mxgraph tool
+      - ash_sql <sql_id>            Show all ash rows group by sampli_time and
+                                    event for the specified sql_id
+      - [-u <user/passwd>] degree   degree of objects for a given user
+      - [-u <user/passwd>] colstats stats for each table, column
+      - [-u <user/passwd>] tabstats stats for each table
+      - params [<pattern>]:         view all parameters, even hidden ones
+      - snap:                       view all snapshots status
+      - bc:                         view contents of buffer cache
+      - temp:                       view used space in temp tbs 
+      - asm:                        Show asm space/free space
+      - space [<tbs>]:              view used/free space in a given tbs 
+      - binds   $SQLID:         display bind capture information for 
+                                    specified cursor
+      - fulltext $SQLID:        display the entire SQL text of the 
+                                    specified statement
+      - last_sql_hash [<sid>]:      hash value of the last styatement executed
+                                    by the specified sid. If no sid speficied,
+                                    return the last hash_value of user sessions
+      - openv   $SQLID
+                [<pattern>]:        display optimizer env parameters for 
+                                    specified cursor
+      - plan    $SQLID [<fmt>]: get explain plan of a particular cursor
+      - pxplan  $SQLID:         get explain plan of a particular cursor and
+                                    all connected cursor slave SQL
+      - wplan $SQLID [<fmt>]:   get explain plan with work area information
+      - pxwplan  $SQLID:        get explain plan with work area information
+                                    of a particular cursor and all connected
+                                    cursor slave SQL
+      - eplan  $SQLID [<fmt>]:  get explain plan with execution statistics
+      - pxeplan  $SQLID:        get explain plan with execution statistics
+                                    of a particular cursor and all connected
+                                    cursor slave SQL
+      - gplan   $SQLID:         get graphical explain plan of a particular 
+                                    cursor using dot specification
+      - webplan $SQLID          get graphical explain plan of a particular 
+                 [/<child_number>]  cursor using gdl specification
+                 [<decorate>]:      optional: child_number, default is zero.
+                                    optional: decorate to print further node
+                                    information. default is 0, 
+                                    1 => print further node information such as
+                                     cost, filter_predicates etc.
+                                    2 => in addition to the above, print 
+                                     row vector information
+                                    sample usage:
+                                    # ora webplan 4019453623
+                                    print more information (decorate 1)
+                                    # ora webplan 4019453623/1 1 
+                                    more information, overload! (decorate 2)
+                                    # ora webplan 4019453623/1 2 
+                                    using sql_id along with child number
+                                    instead of hash value 
+                                    # ora webplan aca4xvmz0rzup/3 1
+      - hash_to_sqlid $SQLID:   get the sql_id of the cursor given its hash 
+                                    value
+      - sqlid_to_hash <sql_id>:     get the hash value of the cursor given its 
+                                    (unquoted) sql_id
+      - exptbs:                     generate export tablespace script 
+      - imptbs:                     generate import tablespace script 
+      - smm [limited]:              SQL memory manager stats for active
+                                    workareas
+      - onepass:                    Run an ora wplan on all one-pass cursors
+      - mpass:                      Run an ora wplan on all multi-pass cursors
+      - pga:                        tell how much pga memory is used
+      - pga_detail <os_pid>|
+                   -mem <size_mb>:  Gives details on how PGA memory is consumed
+                                    by a process (given its os PID) or by the
+                                    set of precesses consuming more than
+                                    <size_mb> MB of PGA memory (-mem option)
+      - pgasnap [<snaptab>]         Snapshot the pga advice stats
+      - pgaadv  [-s [<snaptab>]] 
+                [-o graphfile] 
+                [-m min_size]:      generate a graph from v$pga_target_advice
+                                    and display it or store it in a
+                                    file if the -o option is used.
+                                      -s [<snaptab>] to diff with a 
+                                       previous snapshot (see pgasnap cmd)
+                                      -o [graphfile] to store the result
+                                       in a file instead of displaying it
+                                      -m [min_size] only consider
+                                       workareas with a minimum size
+      - pgaadvhist [-f <f_min>
+                       [<f_max>]]   display the advice history for all
+                                    factors or for factor between 
+                                    f_min and f_max
+      - sga:                        tell how much sga memory is used
+      - sga_stats:                  tell how sga is dynamically used
+      - sort_usage:                 tell how temp tablespace is used in detail 
+      - sgasnap [<snaptab>]         Snapshot the sga advice stats
+      - sgaadv  [-s [<snaptab>]] 
+                [-o graphfile]      generate a graph from v$db_cache_advice
+                                    and v$shared_pool_advice and store it in a
+                                    file if the -o option is used.
+                                      -s [<snaptab>] to diff with a 
+                                       previous snapshot (see sgasnap cmd)
+                                      -o [graphfile] to store the result
+                                       in a file instead of displaying it
+      - process [<min_mb>]:         display process info with pga memory
+      - version:                    display Oracle version number
+
+      - cur_mem [$SQLID]        display the memory used for a 
+                                    given or all cursors
+      - shared_mem [$SQLID]     detailed dump of cursor shared mem
+                                    allocations
+      - runtime_mem [$SQLID]    detailed dump of cursor runtime
+                                    memory allocations
+      - all_mem [$SQLID]          do all of the memory dumps
+      - pstack <pid>|all
+               [<directory>]        run pstack on specified process
+                                    (or all if 'all' specified) and store
+                                    files in specified dir ($T_TRC when
+                                    not specified) 
+      - idxdesc [username] 
+                <tabName>           list all indexes for a given user or 
+				    for a given user and table 
+      - segsize [username]
+		<objName>           list size of all objects(segments) for 
+                                    given user for a given user and object
+
+      - tempu <username>	    list temporary ts usage of all users or 
+				    for a given user 
+   
+      - sqlstats [$SQLID]	    list sql execution stats (like 
+                                    buffer_gets, phy. reads etc)
+				    for a given sql_id/hash_value of statement 
+  
+      - optstats [username]	    list optimizer stats for all tables stored
+                 <tabname>          in dictionary for a given user or for a
+                                    given user and table 
+  
+      - userVs 	    	    	    list all user Views (user_tables, 
+                                    user_indexes etc)
+      - fixedVs 	    	    list all V$ Views 
+
+      - fixedXs 	    	    list all X$ Views 
+
+      - px_processes                list all px processes (QC and slaves)
+
+      - cursor_summary              summarize stats about (un)pinned cursors
+
+      - rowcache                    summarizes row cache statistics
+
+      - monitor_list                lists all the statements that have been
+                                    monitored
+
+      - monitor [xml]:              wraps dbms_sqltune.report_sql_monitor().
+                                    Directly passe the arguments to the PL/SQL
+                                    procedure. Args are:
+                                      sql_id, session_id, session_serial,
+                                      sql_exec_start, sql_exec_id, inst_id,
+                                      instance_id_filter, parallel_filter,
+                                      report_level, type.
+                                    Examples:
+                                      - monitor xml   shows XML report
+                                      - monitor   show last monitored stmt
+                                      - monitor   sql_id=>'8vz99cy9bydv8',
+                                                  session_id=>105 will
+                                        show monitor info for sql_id
+                                        8vz99cy9bydv8 and session_id 105
+                                    Use simply ora monitor 8vz99cy9bydv8
+                                    to display monitoring information for
+                                    sql_id 8vz99cy9bydv8.
+
+                                    Syntax for parallel filters is:
+                                    [qc][servers(<svr_grp>[,] <svr_set>[,]
+                                                 <srv_num>)]
+
+                                    Use /*+ monitor */ to force monitoring.
+
+
+      - monitor_old [ash_all] [<sqlid>]
+                [qc|<slave_grp#> [<slave_set#> [<slave#>]]]
+                                    Old version of SQL monitoring, use a
+                                    SQL query versus the report_sql_monitor()
+                                    package. Display monitoring info for the
+                                    LAST execution of the specified cursor.
+                                    Cursor response time needs to be at
+                                    least 5s for monitoring to start (use the
+                                    monitor hint to force monitoring). Without
+                                    any parameter, will display monitoring info
+                                    for the last cursor that was monitored
+                                    - ash_all will aggregate ash data over all
+                                     executions of the cursor (useful for short
+                                      queries that are executed many times).
+                                    If parallel:
+                                    - qc to see only data for qc
+                                    - slave_grp# to see only data for one
+                                      parallelizer
+                                    - slave_grp# + slave_set# to see only data
+                                      for one slave set of one parallelizer, 
+                                    - slave_grp# + slave_set# + slave# to see
+                                      data only for the specified slave
+
+      - sql_task [progress | interrupt <task_name> | history <#execs> | 
+                  report <task_name> <section> <exec_name> ]
+                                progress: progress monitoring for executing
+                                          sql tasks
+                                interrupt: interrupt an executing sql task
+                                history:   print a history of last n executions
+                                report:    get a sql tune report
+
+
+      - sh                         Run a shell command. E.g.
+                                   ora repeat 5 10 sh 'ps -edf | grep DESC'
+   
+  Memory: The detailed memory dumps need to have events set to work.
+          The events bellow can be added to the init.ora file
+  event=\"10277 trace name context forever, level 10\" # mutable mem
+  event=\"10235 trace name context forever, level 4\"  # shared mem
+
+  NOTE
+  ====
+    - Set environment variable ORA_USE_HASH to 1 to get SQL hash values
+      instead of SQL ids
+    - Set environment variable DBUSER to change default connect string which
+      is \"/ as sysdba\"
+    - Set environment variable ORA_TMP to the default temp directory (default
+      if /tmp when not set)
+"
+
+  exit 1
+}
+
+setup_hash_value()
+{
+  EXCLUDE=-1
+
+  # get potential column names
+  COLNAME1=$1
+  COLNAME2=$2
+  shift 2
+
+  case "$1" in
+    "-sess")
+      temp_hash_value=`$ORA_PROG last_sql_hash $2 | sed -e "s/ \n//g"`
+      SHIFT_PARAM=2
+      ;;
+
+    "all")
+      SHIFT_PARAM=1
+      ;;
+
+    "")
+      SHIFT_PARAM=0
+      EXCLUDE=0
+      ;;
+
+    *)
+      SHIFT_PARAM=1
+      temp_hash_value="$1"
+      ;;
+
+  esac
+
+  if [ "$temp_hash_value" != "" ]; then
+    HVAL=`echo "$temp_hash_value" | sed -e "s/\([0-9A-Za-z]*\)\/\([0-9]*\)/\1/g"`
+    CNUM=`echo "$temp_hash_value" | sed -e "s/\([0-9A-Za-z]*\)\/\([0-9]*\)/\2/g"`
+    if [ "$CNUM" = "" -o "$CNUM" = "$temp_hash_value" ]; then
+      CNUM=0
+    fi
+
+    # determine if sql_id or hash_value. Only sql_id can have 13 characters
+    if [ ${#HVAL} -eq 13 ]; then
+      COLNAME=$COLNAME2
+      HVAL="'$HVAL'"
+    else
+      COLNAME=$COLNAME1
+    fi
+
+  else
+    HVAL=0
+    CNUM=0
+  fi
+}
+
+create_format_functions()
+{
+  sqlplus -s /NOLOG <<EOF | grep '123K'  > /dev/null 2>&1
+    connect $DBUSER
+
+    select dbms_xplan.format_number2(123000) from dual;
+EOF
+
+  if [ $? = 0 ]; then
+    # formatting functions are externalized in dbms_xplan
+    FORMAT_SIZE="dbms_xplan.format_size2"
+    FORMAT_NUMBER="dbms_xplan.format_number2"
+  else
+    FORMAT_SIZE="bill_format_size"
+    FORMAT_NUMBER="bill_format_number"
+
+  sqlplus -s /NOLOG << ! > /dev/null 2>&1
+
+    connect $DBUSER
+
+    create function bill_format_size(num number) 
+    return varchar2 as
+      tmp number := num;
+      idx number := 0;
+      postfix varchar2(10) := ' kmgtp####';
+    begin
+      for idx in 1 .. 6 loop
+        if (tmp < 1024) then
+          return lpad(round(tmp) || substr(postfix, idx, 1), 5);
+        end if;
+    
+        tmp := tmp / 1024;
+      end loop;
+    
+      return '#####';
+    end;
+    /
+    
+    create function bill_format_number(num number) 
+    return varchar2 as
+      tmp number := num;
+      idx number := 0;
+      postfix varchar2(10) := ' KMGTP####';
+    begin
+      for idx in 1 .. 6 loop
+        if (tmp < 1000) then
+          return lpad(round(tmp) || substr(postfix, idx, 1), 5);
+        end if;
+    
+        tmp := tmp / 1000;
+      end loop;
+    
+      return '#####';
+    end;
+    /
+
+!
+  fi
+}
+
+
+EXEC_NAME=`basename $0`
+ORA_PROG=$0
+V=v
+INST_ID=""
+RAC=0
+WHERE=where
+ARGS=""
+BROWSER=firefox
+RENDER=aisee
+
+if [ "$ORA_TMP" = "" ]; then
+  ORA_TMP="/tmp"
+fi
+
+while [ 1 ]; do
+  case "$1" in
+    "-u")
+      ARGS="$ARGS $1 $2"
+      DBUSER=$2
+      shift
+      ;;
+
+    "-i")
+      ARGS="$ARGS $1 $2"
+      ORACLE_SID=${ORACLE_SID}$2
+      shift
+      ;;
+
+    "-sid")
+      ARGS="$ARGS $1 $2"
+      ORACLE_SID=$2
+      shift
+      ;;
+
+    "-rac")
+      ARGS="$ARGS $1"
+      RAC=1
+      V=gv
+      INST_ID="inst_id,"
+      ;;
+
+    "-top")
+      ARGS="$ARGS $1 $2"
+      WHERE="$WHERE rownum < $2 and"
+      shift;
+      ;;
+
+    "-pred")
+      ARGS="$ARGS $1 \"$2\""
+      WHERE="$WHERE $2 and"
+      shift;
+      ;;
+
+
+    *)
+      break
+      ;;
+  esac
+
+  shift
+done
+
+if [ "$DBUSER" = "" ]; then
+  DBUSER="/ as SYSDBA"
+fi
+
+if [ -f "$FRAME_PATH"/env ]; then
+  . "$FRAME_PATH"/env
+fi
+
+version
+
+if [ $VERSION_MAIN -lt 10 ]; then
+  ORA_USE_HASH=1
+fi
+
+if [ $# -lt 1 ]; then
+  usage "Syntax Error"
+fi
+
+
+if [ "$1" = "fulltext" -o "$1" = "full_text" ]; then
+
+  if [ "$2" = "" ]; then
+    usage "Cursor hash value is missing"
+  fi
+
+  setup_hash_value hash_value sql_id $2 $3
+  shift $SHIFT_PARAM
+
+  if [ "$ORA_USE_HASH" = "" ]; then
+    COLNM=sql_id
+    COLNM_HEADER=sql_id
+  else
+    COLNM=hash_value
+    COLNM_HEADER=sql_hash
+  fi
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 600
+    set tab      off
+    set linesize 220
+    set echo off 
+    set long 40000000
+    col sql_hash format A15
+    col sql_id format A18
+    col exec format 9999
+    col sql_fulltext format A75 WORD_WRAP
+
+    repfooter off;
+    set timing off veri off space 1 flush on pause off termout on numwidth 10;
+
+    select $COLNM||
+           decode(child_number, 0, '', '/'||child_number) $COLNM_HEADER, 
+           sql_fulltext 
+    from v\$sql
+    where child_number=$CNUM 
+          and $COLNAME=$HVAL;
+!
+
+exit 0
+fi
+
+if [ "$1" = "ash_sql" -o "$1" = "sqlash" ]; then
+
+  if [ "$2" = "" ]; then
+    usage "Cursor sql_id is missing"
+  fi
+
+  setup_hash_value hash_value sql_id $2 $3
+  shift $SHIFT_PARAM
+
+  if [ "$ORA_USE_HASH" = "" ]; then
+    COLNM=sql_id
+    COLNM_HEADER=sql_id
+  else
+    COLNM=hash_value
+    COLNM_HEADER=sql_hash
+  fi
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 1000
+    set tab      off
+    set linesize 220
+    set echo off
+    set long     40000000
+    col sql_hash format A15
+    col sql_id format A18
+    col exec format 9999
+    col sql_fulltext format A75 WORD_WRAP
+    repfooter off;
+    set timing off veri off space 1 flush on pause off termout on numwidth 10;
+    col p2 format a20
+    col p1 format a30
+    col sample_time format A40
+    set pagesize 100
+    col activity format A30
+    col nb format 999
+    col name format a10
+    BREAK ON sample_time skip 1
+
+    select sample_time, activity, p1, p2, object_name name,
+           count(*) nb
+    from
+      (select sample_time, nvl(event, 'CPU') activity,
+              case when event is null or wait_class = 'User I/O'
+                   then '-' else p1text || ': ' || p1
+              end p1,
+              case when event is null or wait_class = 'User I/O'
+                   then '-' else p2text || ': ' || p2 end p2,
+        object_name
+       from v\$active_session_history,
+            dba_objects
+       where object_id(+) = current_obj#
+       and  $COLNAME=$HVAL)
+    group by sample_time, activity, p1, p2, object_name
+    order by 1, 2, 3, 4, 5,6;
+!
+
+exit 0
+fi
+
+
+if [ "$1" = "execute" ] || [ "$1" = "executing" ]; then
+
+  if [ "$ORA_USE_HASH" = "" ]; then
+    COLNM=sql_id
+    COLNM_HEADER=sql_id
+  else
+    COLNM=hash_value
+    COLNM_HEADER=sql_hash
+  fi
+
+  if [ "$2" != "" ]; then
+    if [ $VERSION_MAIN -lt 10 ]; then
+      PRED="s.sql_text like '%$2%' "
+    else
+      PRED="s.sql_fulltext like '%$2%' "
+    fi
+  else
+    PRED="1=1"
+  fi
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 6000
+    set linesize 100
+    set tab off
+    col address format A15
+    col sql_hash format A15
+    col sql_id format A18
+    col exec format 9999
+    col sql_text format A75 WORD_WRAP
+
+    select /*+ BDAGEVIL leading(se) */ 
+        $COLNM||decode(child_number, 0, '', '/'||child_number) $COLNM_HEADER,
+        users_executing exec, sql_text 
+    from v\$sql s
+    WHERE $PRED 
+          and s.users_executing > 0
+          and s.sql_text not like '%BDAGEVIL%';
+!
+exit 0
+fi
+
+if [ "$1" = "version" ]; then
+
+  version;
+
+  #
+  # Get Oracle version number
+  #
+  sqlplus -s /NOLOG << !  | grep '###' | sed -e 's/^###\(.*\)###$/\1/g' > $ORA_TMP/oraout$$
+
+    set echo off
+    connect $DBUSER
+
+    select '###' || version || '###' version
+    from PRODUCT_COMPONENT_VERSION 
+    where PRODUCT like 'Oracle%';
+!
+  VERSION=`cat $ORA_TMP/oraout$$`
+  rm -f $ORA_TMP/oraout$$
+
+  echo  
+  echo "Oracle version: $VERSION"
+  echo  
+
+  exit 0
+fi
+
+if [ "$1" = "sql_tune" ]; then
+
+  version;
+
+  #
+  # Get Oracle version number
+  #
+  sqlplus -s /NOLOG << ! 
+
+    set echo off
+    set feedback off
+    connect $DBUSER
+    set linesize 150
+    col name format a10
+    col target format a10
+    col task_name format a10
+    col target_desc format a10
+    col info format a50
+
+    select * from
+     (select opname name,
+             task_name,
+             sofar cur_sql,
+             totalwork nb_sql,
+             START_TIME,
+             TIME_REMAINING,
+             findings,
+             decode(info1_desc, NULL, '', info1_desc || ': '|| info1) ||
+             decode(info2_desc, NULL, '', chr(10)||info2_desc || ': '||info2) ||
+             decode(info3_desc, NULL, '', chr(10)||info3_desc || ': '||info3) ||
+             decode(info4_desc, NULL, '', chr(10)||info4_desc || ': '||info4) 
+             Info
+      from   v\$advisor_progress p,
+             dba_advisor_tasks t
+      where  t.task_id = p.task_id
+      order by START_TIME desc)
+      where rownum = 1;
+!
+
+  exit 0
+fi
+
+if [ "$1" = "repeat" ]; then
+
+  shift;
+  interval=$1
+  shift
+  count=$1
+  shift
+  
+  while [ 1 = 1 ]; do
+    echo
+    CURDATE=`date +"%D %T"`
+    echo "######################## $CURDATE ########################"
+    $ORA_PROG $ARGS $*
+    if [ $? -eq 1 ]; then
+      exit 1
+    fi
+    sleep $interval
+    if [ "$count" = "forever" ]; then
+      continue;
+    fi;
+
+    let "count=count-1"
+    if [ $count -le 0 ]; then
+      break;
+    fi;
+  done;
+fi  
+
+
+if [ "$1" = "smm" ]; then
+
+  version;
+
+  if [ "$2" = "limited" ]; then
+    OPTALL=0
+  else
+    OPTALL=1
+  fi
+
+  if [ $SWA_HISTOGRAM -eq 1 ]; then
+    sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+      connect $DBUSER
+  
+      set pagesize 1000
+      set linesize 130
+      col users_executing format A5
+      col sql_text format A65
+  
+      col name format A50
+      col VALUE format A20 JUS C
+      col TOTAL format A15 JUS L
+      col OPTIMAL format A15 JUS L
+      col ONEPASS format A15 JUS L
+      col MPASS format A15 JUS L
+  
+      select sum(TOTAL_EXECUTIONS) || ' ' TOTAL,
+             sum(OPTIMAL_EXECUTIONS) || ' (' || 
+             round(sum(OPTIMAL_EXECUTIONS)*100/
+                   decode(sum(TOTAL_EXECUTIONS), 0, 1, sum(TOTAL_EXECUTIONS)))
+                   || '%)' OPTIMAL, 
+             sum(ONEPASS_EXECUTIONS) || ' (' || 
+             round(sum(ONEPASS_EXECUTIONS)*100/
+                   decode(sum(TOTAL_EXECUTIONS), 0, 1, sum(TOTAL_EXECUTIONS)))
+                   || '%)' ONEPASS, 
+             sum(MULTIPASSES_EXECUTIONS) || ' (' || 
+             round(sum(MULTIPASSES_EXECUTIONS)*100/
+                   decode(sum(TOTAL_EXECUTIONS), 0, 1, sum(TOTAL_EXECUTIONS)))
+                   || '%)' MPASS
+      from   v\$sql_workarea_histogram
+      where  LOW_OPTIMAL_SIZE > 64*1024;
+  
+      col size_range format A20
+      col optimal format 9999999999
+      col onepass format 9999999999
+      col multipasses format 9999999999
+      select lpad(case
+              when LOW < 1024*1024
+              then round(LOW/1024) || ' KB'
+              when LOW < 1024*1024*1024
+              then round(LOW/1024/1024) || ' MB'
+              when LOW < 1024*1024*1024*1024
+              then round(LOW/1024/1024/1024) || ' GB'
+              else round(LOW/1024/1024/1024/1024) || ' TB'
+            end, 6, ' ') || ' ->' ||
+       lpad(case
+              when HIGH < 1024*1024
+              then round(HIGH/1024) || ' KB'
+              when HIGH < 1024*1024*1024
+              then round(HIGH/1024/1024) || ' MB'
+              when HIGH < 1024*1024*1024*1024
+              then round(HIGH/1024/1024/1024) || ' GB'
+              else round(HIGH/1024/1024/1024/1024) || ' TB'
+            end, 7, ' ') size_range,
+       optimal, 
+       onepass, 
+       multipasses
+     from
+       (select decode(rownum,      1, 0,           low_optimal_size) low,
+             decode(sum_forward, 0, max_high_size, high_optimal_size) high,
+             optimal,
+             onepass,
+             multipasses
+        from
+          (select 
+                low_optimal_size,
+                high_optimal_size+1 high_optimal_size,
+                optimal_executions optimal, 
+                onepass_executions onepass, 
+                multipasses_executions multipasses,
+                sum(total_executions) 
+                  over (order by high_optimal_size desc) sum_forward,
+                sum(total_executions) 
+                  over (order by high_optimal_size) sum_backward,
+                sum(total_executions) 
+                over (order by high_optimal_size rows 1 preceding) sum_with_prev,
+                max(high_optimal_size) over () max_high_size
+           from v\$sql_workarea_histogram)
+        where (sum_forward != 0 or
+              (sum_forward = 0 and sum_with_prev != 0))
+              and sum_backward != 0)
+    order by low;
+
+!
+
+    if [ $PGA_ADVICE -eq 1 ] ; then
+
+      sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+      connect $DBUSER
+  
+      set pagesize 1000
+      set linesize 130
+
+      select round(PGA_TARGET_FOR_ESTIMATE/1024/1024) estd_target, 
+             round(BYTES_PROCESSED/1024/1024) mbytes_process, 
+             round(ESTD_EXTRA_BYTES_RW/1024/1024) extra_mbytes_rw, 
+             ESTD_PGA_CACHE_HIT_PERCENTAGE cache_hit, 
+             ESTD_OVERALLOC_COUNT overalloc
+      from v\$pga_target_advice 
+      order by 1;
+!
+    MIN_REQ='round(MIN_MEM) MIN_REQ,'
+
+    fi
+    else
+
+    MIN_REQ=''
+
+    sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+  
+      set pagesize 1000
+      set linesize 130
+      set feedback off
+ 
+      col name format A50
+      col VALUE format A20 JUS C
+      col profile format A35
+
+      connect $DBUSER
+
+      select name profile, cnt,
+             decode(total, 0, 0, round(cnt*100/total)) percentage 
+      from (select name, value cnt, (sum(value) over ()) total 
+      from v\$sysstat where name like 'workarea exec%');
+!
+    fi
+
+    # tablespace info available
+    if [ $SWA_ACTIVE_TABLESPACE -eq 1 ]; then
+       TABLESPACE_SUM_SIZE=', round(sum(TEMPSEG_SIZE/1024/1024)) TSIZE'
+       TABLESPACE_SIZE=', round(KTSSOSIZE/1024) TSIZE'
+    else
+       TABLESPACE_SUM_SIZE=' '
+       TABLESPACE_SIZE=' '
+    fi 
+
+    sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|Connected|rows selected"
+
+        set pagesize 1000
+        set linesize 180
+        set feedback off
+        col name format A50
+        col value format A20
+
+        connect $DBUSER
+  
+        select QESMMSGANM name, 
+              lpad(case 
+              when QESMMSGAUN = 0
+              then case 
+              when QESMMSGAVL >= 10240
+                    then round(QESMMSGAVL/1024) || ' MB'
+              else QESMMSGAVL || ' KB'
+              end
+              when QESMMSGAUN = 1
+                  then QESMMSGAVL || ' us'
+              when QESMMSGAUN = 3
+                  then round((QESMMSGAVL*QESMMSGAMU)/100) || ' %'
+              else QESMMSGAVL || '   '
+             end,20) VALUE
+      from x\$qesmmsga;
+!
+
+    #
+    # Detail for all workareas
+    #
+    if [ $OPTALL -eq 1 ]; then
+      sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+        set pagesize 1000
+        set linesize 180
+        set feedback off
+        col QCSID format 9999
+        col MODULE format A30
+        col SID format 9999
+        col OPERATION format A21
+        col OPID format 9999
+        col ESIZE format 99999999
+        col MIN_REQ format 99999999
+        col OPT_REQ format 99999999
+        col ONE_REQ format 99999999
+        col IOSIZE format 99999999
+        col WSIZE format 99999999
+        col SQL_HASH format 99999999999
+        col MEM format 99999999
+        col TSIZE format 99999999
+        col "MAX MEM" format 99999999
+        col PASS format 99
+
+        connect $DBUSER
+    
+        select /*+ all_rows ordered use_hash(swa) use_nl(s) */
+                to_number(decode(QCSID,65535,NULL,QCSID)) qcsid,
+                to_number(decode(SID, 65535, NULL, SID)) sid, 
+                module,
+                swa.OPERATION_TYPE OPERATION,
+                swa.OPERATION_ID OPID,
+                round(swaa.ATIME/1000000) "TIME (s)",
+                round(WA_SIZE) WSIZE, $MIN_REQ
+                round(ONEPASS_MEM) ONE_REQ,
+                round(OPTIMAL_MEM) OPT_REQ,
+                round(EXP_SIZE) ESIZE,
+                round(ACTUAL_MEM) MEM,
+                round(MAX_MEM) "MAX MEM",
+                PASSES PASS $TABLESPACE_SIZE
+         from x\$qesmmiwt swaa, v\$sql_workarea swa, v\$sql s
+         where swaa.WADDR = swa.WORKAREA_ADDRESS(+)
+           and swa.ADDRESS = s.ADDRESS(+)
+           and swa.HASH_VALUE = s.HASH_VALUE(+)
+           and swa.child_number = s.child_number(+)
+           and sid != userenv('sid')
+         order by 1,5,2;
+     
+!
+    fi
+
+    if [ "$ORA_USE_HASH" = "" ]; then
+      COLNM=sql_id
+      COLNM_HEADER=sql_id
+    else
+      COLNM=hash_value
+      COLNM_HEADER=sql_hash
+    fi
+
+    sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connecte            d|rows selected"
+
+      set pagesize 1000
+      set linesize 180
+      set feedback off
+    
+      col QCSID format 9999
+      col MODULE format A30
+      col SID format 9999
+      col OPERATION format A21
+      col OPID format 9999
+      col ESIZE format 99999999
+      col MIN_REQ format 99999999
+      col OPT_REQ format 99999999
+      col ONE_REQ format 99999999
+      col IOSIZE format 99999999
+      col WSIZE format 99999999
+      col SQL_HASH format 99999999999
+      col MEM format 99999999
+      col TSIZE format 99999999
+      col "MAX MEM" format 99999999
+      col PASS format 99
+
+      connect $DBUSER
+    
+      select /*+ all_rows ordered use_hash(swa) use_nl(s) */
+             to_number(decode(QCSID,65535,NULL,QCSID)) qcsid, 
+             MODULE, s.$COLNM $COLNM_HEADER,
+             swa.WORKAREA_ADDRESS wa_addr, 
+             swaa.OPERATION_TYPE OPERATION, 
+             round(sum(WORK_AREA_SIZE)/1024) wsize, 
+             round(sum(EXPECTED_SIZE)/1024) esize, 
+             round(sum(ACTUAL_MEM_USED)/1024) mem, 
+	     max(NUMBER_PASSES) pass $TABLESPACE_SUM_SIZE
+      from v\$sql_workarea_active swaa, v\$sql_workarea swa, v\$sql s
+      where swaa.WORKAREA_ADDRESS = swa.WORKAREA_ADDRESS(+)
+        and swa.ADDRESS = s.ADDRESS(+)
+        and swa.HASH_VALUE = s.HASH_VALUE(+)
+        and swa.child_number = s.child_number(+)
+        and sid != userenv('sid')
+      group by QCSID, MODULE, s.$COLNM, swa.WORKAREA_ADDRESS,
+               swaa.OPERATION_TYPE
+      order by 1,2;
+!
+exit 0
+fi
+
+if [ "$1" = "cursors" ]; then
+  if [ "$2" = "all" ]; then
+    EXCLUDE=-1
+    shift
+  else
+    EXCLUDE=0
+  fi
+
+  if [ "$ORA_USE_HASH" = "" ]; then
+    COLNM=sql_id
+    COLNM_HEADER=sql_id
+  else
+    COLNM=hash_value
+    COLNM_HEADER=sql_hash
+  fi
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 6000
+    set linesize 100
+    set tab off
+    col address format A15
+    col sql_hash format A13
+    col sql_id format A16
+    col exec format 9999
+    col sql_text format A65 WORD_WRAP
+
+    select /* BDAGEVIL */ 
+     $COLNM || decode(child_number, 0, '', '/'||child_number) $COLNM_HEADER, 
+     sql_text 
+    from v\$sql
+    $WHERE sql_text like '%$2%' 
+          and sql_text not like '%BDAGEVIL%'
+          and PARSING_USER_ID != $EXCLUDE;
+!
+exit 0
+fi
+
+
+if [ "$1" = "pgaadv" ]; then
+
+  shift;
+
+  SNAPSHOT=""
+  MIN_WS=0
+  OUTPUT_ADVICE_HIST_PERC="$ORA_TMP/pga_target_advice_histogram_perc.graph"
+  OUTPUT_ADVICE_HIST_CNT="$ORA_TMP/pga_target_advice_histogram_cnt.graph"
+  OUTPUT_ADVICE="$ORA_TMP/pga_target_advice.graph"
+  while [ "$1" != "" ]; do
+    if [ "$1" = "-s" ]; then
+      if [ "$2" != "" -a "$2" != "-m" -a "$2" != "-o" ]; then
+        SNAPSHOT=$2
+        shift 2
+      else
+        SNAPSHOT="pga_target_advice"
+        shift
+      fi
+      continue
+    fi
+
+    if [ "$1" = '-m' ]; then
+      MIN_WS=$2
+      shift 2
+      continue
+    fi
+
+    if [ "$1" = '-o' ]; then
+      OUTPUT_ADVICE_HIST_CNT="$2"_hist_cnt.graph
+      OUTPUT_ADVICE_HIST_PERC="$2"_hist_perc.graph
+      OUTPUT_ADVICE="$2".graph
+      shift 2
+      continue
+    fi
+
+    usage "Cannot read arguments for <pgaadv> command"
+  done
+
+  #
+  # get the base data first
+  #
+  if [ "$SNAPSHOT" = "" ]; then
+    sqlplus -s /NOLOG << ! | egrep '##|@@|#@' > $ORA_TMP/pgaadv$$
+
+      connect $DBUSER
+
+      drop table pga_target_advice_hist_temp;
+      create table pga_target_advice_hist_temp
+        as select  PGA_TARGET_FACTOR,
+                   PGA_TARGET_FOR_ESTIMATE,
+                   ESTD_OPTIMAL_EXECUTIONS,
+                   ESTD_ONEPASS_EXECUTIONS,
+                   ESTD_MULTIPASSES_EXECUTIONS,
+                   ESTD_TOTAL_EXECUTIONS,
+                   ESTD_OVERALLOC_COUNT,
+                   IGNORED_WORKAREAS_COUNT
+        from (select AH.PGA_TARGET_FOR_ESTIMATE,
+                     AH.PGA_TARGET_FACTOR,
+                  sum(ESTD_OPTIMAL_EXECUTIONS)     ESTD_OPTIMAL_EXECUTIONS,
+                  sum(ESTD_ONEPASS_EXECUTIONS)     ESTD_ONEPASS_EXECUTIONS,
+                  sum(ESTD_MULTIPASSES_EXECUTIONS) ESTD_MULTIPASSES_EXECUTIONS,
+                  sum(ESTD_TOTAL_EXECUTIONS)       ESTD_TOTAL_EXECUTIONS,
+                  sum(A.ESTD_OVERALLOC_COUNT)   ESTD_OVERALLOC_COUNT,
+                  sum(IGNORED_WORKAREAS_COUNT)     IGNORED_WORKAREAS_COUNT,
+                  max(sum(estd_optimal_executions))
+                    over (order by AH.PGA_TARGET_FOR_ESTIMATE rows 
+                          between 0         preceding
+                          and     unbounded following) max_opt_forward,
+                  min(sum(estd_optimal_executions))
+                    over (order by AH.PGA_TARGET_FOR_ESTIMATE rows 
+                          between 0         preceding
+                          and     unbounded following) min_opt_forward,
+                  first_value(sum(estd_optimal_executions))
+                    over (order by AH.PGA_TARGET_FOR_ESTIMATE rows 
+                          2 preceding) min_opt_pred_1
+            from v\$pga_target_advice_histogram ah, 
+                 v\$pga_target_advice a
+            where AH.LOW_OPTIMAL_SIZE >= $MIN_WS * 1024
+              and AH.PGA_TARGET_FOR_ESTIMATE = A.PGA_TARGET_FOR_ESTIMATE
+            group by AH.PGA_TARGET_FOR_ESTIMATE, AH.PGA_TARGET_FACTOR)
+          where max_opt_forward != min_opt_forward
+             or min_opt_pred_1 != max_opt_forward;
+
+      drop table pga_target_advice_temp;
+      create table pga_target_advice_temp
+        as select PGA_TARGET_FOR_ESTIMATE,
+                  PGA_TARGET_FACTOR,
+                  BYTES_PROCESSED,
+                  ESTD_EXTRA_BYTES_RW,
+                  ESTD_OVERALLOC_COUNT
+           from
+             (select  PGA_TARGET_FOR_ESTIMATE,
+                      PGA_TARGET_FACTOR,
+                      BYTES_PROCESSED,
+                      ESTD_EXTRA_BYTES_RW,
+                      ESTD_OVERALLOC_COUNT,
+                      max(ESTD_EXTRA_BYTES_RW)
+                        over (order by  PGA_TARGET_FACTOR rows 
+                              between 0         preceding
+                              and     unbounded following) max_rw_forward,
+                      min(ESTD_EXTRA_BYTES_RW)
+                        over (order by PGA_TARGET_FACTOR rows 
+                              between 0         preceding
+                              and     unbounded following) min_rw_forward,
+                     first_value(ESTD_EXTRA_BYTES_RW)
+                       over (order by PGA_TARGET_FACTOR rows 
+                             2 preceding) min_rw_pred_1
+            from v\$pga_target_advice)
+         where max_rw_forward != min_rw_forward
+            or min_rw_pred_1 != max_rw_forward;
+          
+
+      select '@@'||(s2.qesmmsgavl)||'@@' value
+      from x\$qesmmsga s2
+      where s2.qesmmsganm like 'BUG count%';
+
+      select '##'||max(IGNORED_WORKAREAS_COUNT)||'##' value
+      from pga_target_advice_hist_temp;
+
+      select '#@'||round(PGA_TARGET_FOR_ESTIMATE/1024/1024)||'#@' value
+      from pga_target_advice_temp
+      where PGA_TARGET_FACTOR = 1;
+
+      exit;
+!
+  else
+    sqlplus -s /NOLOG << ! | egrep '##|@@|#@' > $ORA_TMP/pgaadv$$
+
+      connect $DBUSER
+
+      drop table pga_target_advice_hist_temp;
+      create table pga_target_advice_hist_temp
+        as select  PGA_TARGET_FOR_ESTIMATE,
+                   PGA_TARGET_FACTOR,
+                   ESTD_OPTIMAL_EXECUTIONS,
+                   ESTD_ONEPASS_EXECUTIONS,
+                   ESTD_MULTIPASSES_EXECUTIONS,
+                   ESTD_TOTAL_EXECUTIONS,
+                   ESTD_OVERALLOC_COUNT,
+                   IGNORED_WORKAREAS_COUNT
+        from (select S2.PGA_TARGET_FOR_ESTIMATE,
+                     S2.PGA_TARGET_FACTOR,
+                  sum(S2.ESTD_OPTIMAL_EXECUTIONS -
+                      S1.ESTD_OPTIMAL_EXECUTIONS) ESTD_OPTIMAL_EXECUTIONS,
+                  sum(S2.ESTD_ONEPASS_EXECUTIONS -
+                      S1.ESTD_ONEPASS_EXECUTIONS) ESTD_ONEPASS_EXECUTIONS,
+                  sum(S2.ESTD_MULTIPASSES_EXECUTIONS -
+                     S1.ESTD_MULTIPASSES_EXECUTIONS) ESTD_MULTIPASSES_EXECUTIONS,
+                  sum(S2.ESTD_TOTAL_EXECUTIONS -
+                      S1.ESTD_TOTAL_EXECUTIONS) ESTD_TOTAL_EXECUTIONS,
+                  sum(A.ESTD_OVERALLOC_COUNT -
+                      S1.ESTD_OVERALLOC_COUNT) ESTD_OVERALLOC_COUNT,
+                  sum(S2.IGNORED_WORKAREAS_COUNT -
+                      S1.IGNORED_WORKAREAS_COUNT) IGNORED_WORKAREAS_COUNT,
+                max(sum(s2.estd_optimal_executions - s1.estd_optimal_executions))
+                    over (order by s2.PGA_TARGET_FOR_ESTIMATE rows 
+                          between 0         preceding
+                          and     unbounded following) max_opt_forward,
+                min(sum(s2.estd_optimal_executions - s1.estd_optimal_executions))
+                    over (order by s2.PGA_TARGET_FOR_ESTIMATE rows 
+                          between 0         preceding
+                          and     unbounded following) min_opt_forward,
+                first_value(sum(s2.estd_optimal_executions -
+                                s1.estd_optimal_executions))
+                    over (order by s2.PGA_TARGET_FOR_ESTIMATE rows 
+                          2 preceding) min_opt_pred_1
+            from v\$pga_target_advice_histogram s2,
+                 ${SNAPSHOT}_hist_snap s1,
+                 v\$pga_target_advice a
+            where S2.LOW_OPTIMAL_SIZE >= $MIN_WS * 1024
+              and S2.PGA_TARGET_FOR_ESTIMATE = A.PGA_TARGET_FOR_ESTIMATE
+              and S2.PGA_TARGET_FOR_ESTIMATE = S1.PGA_TARGET_FOR_ESTIMATE
+              and s1.LOW_OPTIMAL_SIZE = s2.LOW_OPTIMAL_SIZE
+              and s1.HIGH_OPTIMAL_SIZE = s2.HIGH_OPTIMAL_SIZE
+            group by S2.PGA_TARGET_FOR_ESTIMATE, S2.PGA_TARGET_FACTOR)
+         where max_opt_forward != min_opt_forward
+            or min_opt_pred_1 != max_opt_forward;
+
+      drop table pga_target_advice_temp;
+      create table pga_target_advice_temp
+        as select PGA_TARGET_FOR_ESTIMATE,
+                  PGA_TARGET_FACTOR,
+                  BYTES_PROCESSED,
+                  ESTD_EXTRA_BYTES_RW,
+                  ESTD_OVERALLOC_COUNT
+           from                  
+              (select  S2.PGA_TARGET_FOR_ESTIMATE,
+                       S2.PGA_TARGET_FACTOR,
+                       (S2.BYTES_PROCESSED -
+                        S1.BYTES_PROCESSED) BYTES_PROCESSED,
+                       (S2.ESTD_EXTRA_BYTES_RW -
+                        S1.ESTD_EXTRA_BYTES_RW) ESTD_EXTRA_BYTES_RW,
+                     (S2.ESTD_OVERALLOC_COUNT -
+                      S1.ESTD_OVERALLOC_COUNT) ESTD_OVERALLOC_COUNT,
+                        max(S2.ESTD_EXTRA_BYTES_RW - S1.ESTD_EXTRA_BYTES_RW)
+                          over (order by  S1.PGA_TARGET_FACTOR rows 
+                                between 0         preceding
+                                and     unbounded following) max_rw_forward,
+                        min(S2.ESTD_EXTRA_BYTES_RW - S1.ESTD_EXTRA_BYTES_RW)
+                          over (order by S1.PGA_TARGET_FACTOR rows 
+                                between 0         preceding
+                                and     unbounded following) min_rw_forward,
+                       first_value(S2.ESTD_EXTRA_BYTES_RW-S1.ESTD_EXTRA_BYTES_RW)
+                         over (order by S1.PGA_TARGET_FACTOR rows 
+                               2 preceding) min_rw_pred_1
+              from  v\$pga_target_advice S2,
+                    ${SNAPSHOT}_snap s1
+              where S2.PGA_TARGET_FOR_ESTIMATE = S1.PGA_TARGET_FOR_ESTIMATE)
+         where max_rw_forward != min_rw_forward
+               or min_rw_pred_1 != max_rw_forward;
+      
+      select '@@'||(s2.qesmmsgavl - s1.qesmmsgavl)||'@@' value
+      from x\$qesmmsga s2, ${SNAPSHOT}_bug s1
+      where s2.qesmmsganm like 'BUG count%';
+
+      select '##'||max(IGNORED_WORKAREAS_COUNT)||'##' value
+      from pga_target_advice_hist_temp;
+
+      select '#@'||round(PGA_TARGET_FOR_ESTIMATE/1024/1024)||'#@' value
+      from pga_target_advice_temp
+      where PGA_TARGET_FACTOR = 1;
+
+      exit;
+!
+
+  fi
+
+
+  NB_IGNORED=`cat $ORA_TMP/pgaadv$$ | grep '##' | sed -e 's/^##\(.*\)##$/\1/g'`
+  NB_BUG=`cat $ORA_TMP/pgaadv$$ | grep '@@' | sed -e 's/^@@\(.*\)@@$/\1/g'`
+  CURRENT=`cat $ORA_TMP/pgaadv$$ | grep '#@' | sed -e 's/^#@\(.*\)#@$/\1/g'`
+  rm -f $ORA_TMP/pgaadv$$
+
+  TITLE="TitleText: PGA Advice Hist % (cur=${CURRENT}MB min=$MIN_WS"
+
+  if [ $NB_IGNORED -ne 0 ]; then
+    TITLE="$TITLE, ignored=$NB_IGNORED"
+  fi
+
+  if [ $NB_BUG -ne 0 ]; then
+    TITLE="$TITLE, bugs=$NB_BUG"
+  fi
+
+  TITLE="${TITLE})"
+
+  echo $TITLE > $OUTPUT_ADVICE_HIST_PERC
+  echo "XUnitText: PGA_AGGREGATE_TARGET FACTOR" >> $OUTPUT_ADVICE_HIST_PERC
+  echo "YUnitText: Percentage" >> $OUTPUT_ADVICE_HIST_PERC
+  echo "XLowLimit: 10\n" >> $OUTPUT_ADVICE_HIST_PERC
+
+  sqlplus -s /NOLOG << ! | grep '##' | sed -e 's/^##\(.*\)$/\1/g' >> $OUTPUT_ADVICE_HIST_PERC
+
+      connect $DBUSER
+
+      set pagesize 6000
+      set linesize 100
+      set tab off
+
+      select '##"Optimal"' value from dual
+        union all
+      select '##'||PGA_TARGET_FACTOR|| ' ' ||
+             round(((ESTD_OPTIMAL_EXECUTIONS*100)/ESTD_TOTAL_EXECUTIONS))
+      from 
+        (select   PGA_TARGET_FACTOR, ESTD_OPTIMAL_EXECUTIONS,
+                  ESTD_TOTAL_EXECUTIONS
+         from     pga_target_advice_hist_temp
+         order by PGA_TARGET_FOR_ESTIMATE)
+        union all
+      select '##' from dual
+        union all
+      select '##"One-pass"' from dual
+        union all
+      select '##'||PGA_TARGET_FACTOR|| ' ' ||
+             round(((ESTD_ONEPASS_EXECUTIONS*100)/ESTD_TOTAL_EXECUTIONS))
+      from 
+        (select   PGA_TARGET_FACTOR, ESTD_ONEPASS_EXECUTIONS,
+                  ESTD_TOTAL_EXECUTIONS
+         from     pga_target_advice_hist_temp
+         order by PGA_TARGET_FACTOR)
+        union all
+      select '##' from dual
+        union all
+      select '##"Multi-pass"' from dual
+        union all
+      select '##'||PGA_TARGET_FACTOR|| ' ' ||
+             round(((ESTD_MULTIPASSES_EXECUTIONS*100)/ESTD_TOTAL_EXECUTIONS))
+      from 
+        (select   PGA_TARGET_FACTOR, ESTD_MULTIPASSES_EXECUTIONS,
+                  ESTD_TOTAL_EXECUTIONS
+         from     pga_target_advice_hist_temp
+         order by PGA_TARGET_FACTOR)
+        union all
+      select '##' from dual
+        union all
+      select '##"Overalloc"' from dual
+        union all
+      select '##0 0' from dual
+        union all
+      select '##0 100' from dual
+        union all
+      select '##'||nvl(max(PGA_TARGET_FACTOR), 0)||' 100'
+        from pga_target_advice_hist_temp
+        where ESTD_OVERALLOC_COUNT <>0
+        union all
+      select '##'||nvl(max(PGA_TARGET_FACTOR), 0)||' 0'
+        from pga_target_advice_hist_temp
+        where ESTD_OVERALLOC_COUNT<>0;
+!
+
+  TITLE="TitleText: PGA Advice Hist Count (cur=${CURRENT}MB min=$MIN_WS"
+
+  if [ $NB_IGNORED -ne 0 ]; then
+    TITLE="$TITLE, ignored=$NB_IGNORED"
+  fi
+
+  if [ $NB_BUG -ne 0 ]; then
+    TITLE="$TITLE, bugs=$NB_BUG"
+  fi
+
+  TITLE="${TITLE})"
+
+  echo $TITLE > $OUTPUT_ADVICE_HIST_CNT
+  echo "XUnitText: PGA_AGGREGATE_TARGET FACTOR" >> $OUTPUT_ADVICE_HIST_CNT
+  echo "YUnitText: Count" >> $OUTPUT_ADVICE_HIST_CNT
+  echo "XLowLimit: 10\n" >> $OUTPUT_ADVICE_HIST_CNT
+
+  sqlplus -s /NOLOG << ! | grep '##' | sed -e 's/^##\(.*\)$/\1/g' >> $OUTPUT_ADVICE_HIST_CNT
+
+      connect $DBUSER
+
+      set pagesize 6000
+      set linesize 100
+      set tab off
+
+      select '##"Optimal"' value from dual
+        union all
+      select '##'||PGA_TARGET_FACTOR|| ' ' ||ESTD_OPTIMAL_EXECUTIONS
+      from 
+        (select   PGA_TARGET_FACTOR, ESTD_OPTIMAL_EXECUTIONS,
+                  ESTD_TOTAL_EXECUTIONS
+         from     pga_target_advice_hist_temp
+         order by PGA_TARGET_FOR_ESTIMATE)
+        union all
+      select '##' from dual
+        union all
+      select '##"One-pass"' from dual
+        union all
+      select '##'||PGA_TARGET_FACTOR|| ' ' ||ESTD_ONEPASS_EXECUTIONS
+      from 
+        (select   PGA_TARGET_FACTOR, ESTD_ONEPASS_EXECUTIONS,
+                  ESTD_TOTAL_EXECUTIONS
+         from     pga_target_advice_hist_temp
+         order by PGA_TARGET_FACTOR)
+        union all
+      select '##' from dual
+        union all
+      select '##"Multi-pass"' from dual
+        union all
+      select '##'||PGA_TARGET_FACTOR|| ' ' ||ESTD_MULTIPASSES_EXECUTIONS
+      from 
+        (select   PGA_TARGET_FACTOR, ESTD_MULTIPASSES_EXECUTIONS,
+                  ESTD_TOTAL_EXECUTIONS
+         from     pga_target_advice_hist_temp
+         order by PGA_TARGET_FACTOR)
+        union all
+      select '##' from dual
+        union all
+      select '##"Overalloc"' from dual
+        union all
+      select '##0 0' from dual
+        union all
+      select '##0 100' from dual
+        union all
+      select '##'||nvl(max(PGA_TARGET_FACTOR), 0)||' 100'
+        from pga_target_advice_hist_temp
+        where ESTD_OVERALLOC_COUNT <>0
+        union all
+      select '##'||nvl(max(PGA_TARGET_FACTOR), 0)||' 0'
+        from pga_target_advice_hist_temp
+        where ESTD_OVERALLOC_COUNT<>0;
+!
+
+  echo "TitleText: PGA Advice (cur=${CURRENT}MB)" > $OUTPUT_ADVICE
+  echo "XUnitText: PGA_AGGREGATE_TARGET FACTOR" >> $OUTPUT_ADVICE
+  echo "YUnitText: Cache hit percentage" >> $OUTPUT_ADVICE
+
+  sqlplus -s /NOLOG << ! | grep '##' | sed -e 's/^##\(.*\)$/\1/g' >> $OUTPUT_ADVICE
+
+      connect $DBUSER
+
+      set pagesize 6000
+      set linesize 100
+      set tab off
+
+      select '##"Cache hit %"' value from dual
+        union all
+      select *
+        from (select '##'||PGA_TARGET_FACTOR|| ' ' ||
+               round((BYTES_PROCESSED*100)/(BYTES_PROCESSED+ESTD_EXTRA_BYTES_RW),2)
+             from pga_target_advice_temp
+            order by PGA_TARGET_FACTOR);
+!
+
+  if [ "$OUTPUT_ADVICE_HIST_CNT" = "$ORA_TMP/pga_target_advice_histogram_cnt.graph" ]; then
+    mxgraph $OUTPUT_ADVICE_HIST_PERC &
+    mxgraph $OUTPUT_ADVICE_HIST_CNT &
+    mxgraph $OUTPUT_ADVICE &
+    echo
+  fi
+  echo "\nGraph produced in $OUTPUT_ADVICE_HIST_CNT, $OUTPUT_ADVICE_HIST_PERC and $OUTPUT_ADVICE\n"
+exit 0
+fi
+
+if [ "$1" = "pgasnap" ]; then
+
+  if [ "$2" != "" ]; then
+    SNAPSHOT=$2
+  else
+    SNAPSHOT="pga_target_advice"
+  fi
+
+  sqlplus -s /NOLOG << ! > /dev/null 2>&1 
+
+      connect $DBUSER
+
+      drop table ${SNAPSHOT}_hist_snap;
+      create table ${SNAPSHOT}_hist_snap
+        as select AH.PGA_TARGET_FOR_ESTIMATE,
+                  AH.PGA_TARGET_FACTOR, 
+                  AH.LOW_OPTIMAL_SIZE,
+                  AH.HIGH_OPTIMAL_SIZE, 
+                  AH.ESTD_OPTIMAL_EXECUTIONS,
+                  AH.ESTD_ONEPASS_EXECUTIONS,
+                  AH.ESTD_MULTIPASSES_EXECUTIONS,
+                  AH.ESTD_TOTAL_EXECUTIONS,
+                  AH.IGNORED_WORKAREAS_COUNT,
+                  A.ESTD_OVERALLOC_COUNT
+           from v\$pga_target_advice_histogram ah,
+                v\$pga_target_advice a
+           where A.PGA_TARGET_FOR_ESTIMATE = AH.PGA_TARGET_FOR_ESTIMATE;
+
+      drop table ${SNAPSHOT}_snap;
+      create table ${SNAPSHOT}_snap
+        as select A.PGA_TARGET_FOR_ESTIMATE, A.PGA_TARGET_FACTOR, 
+                  A.BYTES_PROCESSED, A.ESTD_EXTRA_BYTES_RW,
+                  A.ESTD_OVERALLOC_COUNT
+           from v\$pga_target_advice a;
+
+      drop table ${SNAPSHOT}_bug;
+      create table ${SNAPSHOT}_bug
+        as  select qesmmsgavl
+        from x\$qesmmsga 
+        where qesmmsganm like 'BUG count%';
+
+      exit;
+!
+
+exit 0
+fi
+
+if [ "$1" = "sgaadv" ]; then
+
+  shift;
+
+  SNAPSHOT=""
+  OUTPUT_ADVICE_BC="$ORA_TMP/bc.graph"
+  OUTPUT_ADVICE_SP="$ORA_TMP/sp.graph"
+
+  while [ "$1" != "" ]; do
+    if [ "$1" = "-s" ]; then
+      if [ "$2" != "" -a "$2" != "-m" -a "$2" != "-o" ]; then
+        SNAPSHOT=$2
+        shift 2
+      else
+        SNAPSHOT="sga_advice"
+        shift
+      fi
+      continue
+    fi
+
+    if [ "$1" = '-o' ]; then
+      OUTPUT_ADVICE_BC="$2"_bc.graph
+      OUTPUT_ADVICE_SP="$2"_sp.graph
+      shift 2
+      continue
+    fi
+
+    usage "Cannot read arguments for <sgaadv> command"
+  done
+
+  #
+  # get the base data first
+  #
+  if [ "$SNAPSHOT" = "" ]; then
+    sqlplus -s /NOLOG << ! | egrep '##|@@' > $ORA_TMP/sgaadv$$
+
+      connect $DBUSER
+
+      drop table bc_advice_temp;
+      create table bc_advice_temp
+        as select  SIZE_FOR_ESTIMATE,
+                   SIZE_FACTOR,
+                   ESTD_PHYSICAL_READS
+        from  v\$db_cache_advice BC
+        where NAME = 'DEFAULT';
+
+      drop table sp_advice_temp;
+      create table sp_advice_temp
+        as select  SHARED_POOL_SIZE_FOR_ESTIMATE,
+                   SHARED_POOL_SIZE_FACTOR,
+                   ESTD_LC_TIME_SAVED
+            from v\$shared_pool_advice SP;
+
+      select '@@'||(value/1024/1024)||'@@' value
+      from v\$parameter
+      where NAME='db_cache_size';
+
+      select '##'||(value/1024/1024)||'##' value
+      from v\$parameter
+      where NAME='shared_pool_size';
+
+      exit;
+!
+  else
+    sqlplus -s /NOLOG << ! | egrep '##|@@' > $ORA_TMP/sgaadv$$
+
+      connect $DBUSER
+
+      drop table bc_advice_temp;
+      create table bc_advice_temp
+        as select  SIZE_FOR_ESTIMATE,
+                   SIZE_FACTOR,
+                   ESTD_PHYSICAL_READS
+        from (select BC.SIZE_FOR_ESTIMATE,
+                     BC.SIZE_FACTOR,
+                     (BC.ESTD_PHYSICAL_READS -
+                      SN.ESTD_PHYSICAL_READS) ESTD_PHYSICAL_READS
+              from v\$db_cache_advice BC,
+                   sga_advice_db_snap SN
+              where BC.SIZE_FOR_ESTIMATE = SN.SIZE_FOR_ESTIMATE
+                and NAME = 'DEFAULT');
+
+      drop table sp_advice_temp;
+      create table sp_advice_temp
+        as select  SHARED_POOL_SIZE_FOR_ESTIMATE,
+                   SHARED_POOL_SIZE_FACTOR,
+                   ESTD_LC_TIME_SAVED
+        from (select SP.SHARED_POOL_SIZE_FOR_ESTIMATE,
+                     SP.SHARED_POOL_SIZE_FACTOR,
+                     (SP.ESTD_LC_TIME_SAVED -
+                      SN.ESTD_LC_TIME_SAVED) ESTD_LC_TIME_SAVED
+              from v\$shared_pool_advice SP,
+                   sga_advice_sp_snap SN
+              where SP.SHARED_POOL_SIZE_FOR_ESTIMATE =
+                    SN.SHARED_POOL_SIZE_FOR_ESTIMATE);
+
+      select '@@'||round(value/1024/1024)||'@@' value
+      from v\$parameter
+      where NAME='db_cache_size';
+
+      select '##'||round(value/1024/1024)||'##' value
+      from v\$parameter
+      where NAME='shared_pool_size';
+
+      exit;
+!
+
+  fi
+
+
+  SPSIZE=`cat $ORA_TMP/sgaadv$$ | grep '##' | sed -e 's/^##\(.*\)##$/\1/g'`
+  BCSIZE=`cat $ORA_TMP/sgaadv$$ | grep '@@' | sed -e 's/^@@\(.*\)@@$/\1/g'`
+  rm -f $ORA_TMP/sgaadv$$
+
+  TITLE="TitleText: Buffer Cache Advice (cur=${BCSIZE}MB)"
+
+  echo $TITLE > $OUTPUT_ADVICE_BC
+  echo "XUnitText: BC_SIZE_FACTOR" >> $OUTPUT_ADVICE_BC
+  echo "YUnitText: Physical Reads" >> $OUTPUT_ADVICE_BC
+
+  sqlplus -s /NOLOG << ! | grep '##' | sed -e 's/^##\(.*\)$/\1/g' >> $OUTPUT_ADVICE_BC
+
+      connect $DBUSER
+
+      set pagesize 6000
+      set linesize 100
+      set tab off
+
+      select '##"Size Factor"' value from dual
+        union all
+      select '##'||SIZE_FACTOR|| ' ' || ESTD_PHYSICAL_READS
+      from
+        (select *
+         from bc_advice_temp
+         order by size_factor);
+!
+
+  TITLE="TitleText: Shared Pool Advice (cur=${SPSIZE}MB)"
+
+  echo $TITLE > $OUTPUT_ADVICE_SP
+  echo "XUnitText: SP_SIZE_FACTOR" >> $OUTPUT_ADVICE_SP
+  echo "YUnitText: Time Saved (ms)" >> $OUTPUT_ADVICE_SP
+
+  sqlplus -s /NOLOG << ! | grep '##' | sed -e 's/^##\(.*\)$/\1/g' >> $OUTPUT_ADVICE_SP
+
+      connect $DBUSER
+
+      set pagesize 6000
+      set linesize 100
+      set tab off
+
+      select '##"Size Factor"' value from dual
+        union all
+      select '##'||SHARED_POOL_SIZE_FACTOR|| ' ' || ESTD_LC_TIME_SAVED
+      from
+        (select *
+         from sp_advice_temp
+         order by SHARED_POOL_SIZE_FACTOR);
+!
+
+  if [ "$OUTPUT_ADVICE_SP" = "$ORA_TMP/sp.graph" ]; then
+    mxgraph $OUTPUT_ADVICE_BC &
+    mxgraph $OUTPUT_ADVICE_SP &
+    echo
+  fi
+  echo "\nGraph produced in $OUTPUT_ADVICE_SP and $OUTPUT_ADVICE_BC\n"
+exit 0
+fi
+
+
+if [ "$1" = "sgasnap" ]; then
+
+  if [ "$2" != "" ]; then
+    SNAPSHOT=$2
+  else
+    SNAPSHOT="sga_advice"
+  fi
+
+  sqlplus -s /NOLOG << ! > /dev/null 2>&1 
+
+      connect $DBUSER
+
+      drop table ${SNAPSHOT}_db_snap;
+      create table ${SNAPSHOT}_db_snap
+        as select SIZE_FOR_ESTIMATE,
+                  SIZE_FACTOR,
+                  ESTD_PHYSICAL_READ_FACTOR,
+                  ESTD_PHYSICAL_READS
+           from v\$db_cache_advice
+           where NAME='DEFAULT';
+
+      drop table ${SNAPSHOT}_sp_snap;
+      create table ${SNAPSHOT}_sp_snap
+        as select SHARED_POOL_SIZE_FOR_ESTIMATE,
+                  SHARED_POOL_SIZE_FACTOR,
+                  ESTD_LC_TIME_SAVED
+           from v\$shared_pool_advice;
+
+      exit;
+!
+
+exit 0
+fi
+
+
+if [ "$1" = "pgaadvhist" ]; then
+
+  if [ "$2" = "-f" ]; then
+    if [ "$4" != "" ]; then
+      FACTOR=" where PGA_TARGET_FACTOR between $3 and $4 "
+    else
+      FACTOR=" where PGA_TARGET_FACTOR = $3 "
+    fi
+  else
+    FACTOR=""
+  fi
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|ADDRESS|selected" > $ORA_TMP/pgaadvhist$$
+    connect $DBUSER
+
+    set pagesize 0
+    set tab      off
+    set linesize 140
+    set echo off 
+    repfooter off;
+    set timing off veri off space 1 flush on pause off termout on numwidth 10;
+    
+    select PGA_TARGET_FACTOR
+    from v\$pga_target_advice  $FACTOR
+    order by 1;
+!
+
+  cat $ORA_TMP/pgaadvhist$$ | while read a; do
+    if [ "$a" = "" ]; then
+      continue;
+    fi
+    set $a
+
+    echo
+    echo "       -----------------------------------"
+    echo "           workarea advice for factor $1" 
+    echo "       -----------------------------------"
+    echo
+    sqlplus -s /NOLOG << ! | egrep -v "Connected|ADDRESS|selected"
+      connect $DBUSER
+  
+      set pagesize 0
+      set tab      off
+      set linesize 140
+      set echo off 
+      repfooter off;
+      set timing off veri off space 1 flush on pause off termout on numwidth 10;
+
+      col optimal format 9999999999
+      col onepass format 9999999999
+      col multipasses format 9999999999
+      select lpad(case
+              when LOW < 1024*1024
+              then round(LOW/1024) || ' KB'
+              when LOW < 1024*1024*1024
+              then round(LOW/1024/1024) || ' MB'
+              when LOW < 1024*1024*1024*1024
+              then round(LOW/1024/1024/1024) || ' GB'
+              else round(LOW/1024/1024/1024/1024) || ' TB'
+            end, 6, ' ') || ' ->' ||
+       lpad(case
+              when HIGH < 1024*1024
+              then round(HIGH/1024) || ' KB'
+              when HIGH < 1024*1024*1024
+              then round(HIGH/1024/1024) || ' MB'
+              when HIGH < 1024*1024*1024*1024
+              then round(HIGH/1024/1024/1024) || ' GB'
+              else round(HIGH/1024/1024/1024/1024) || ' TB'
+            end, 7, ' ') size_range,
+       optimal, 
+       onepass, 
+       multipasses
+     from
+       (select decode(rownum,      1, 0,           low_optimal_size) low,
+             decode(sum_forward, 0, max_high_size, high_optimal_size) high,
+             optimal,
+             onepass,
+             multipasses
+        from
+          (select 
+                low_optimal_size,
+                high_optimal_size+1 high_optimal_size,
+                estd_optimal_executions optimal, 
+                estd_onepass_executions onepass, 
+                estd_multipasses_executions multipasses,
+                sum(estd_total_executions) 
+                  over (order by high_optimal_size desc) sum_forward,
+                sum(estd_total_executions) 
+                  over (order by high_optimal_size) sum_backward,
+                sum(estd_total_executions) 
+                  over (order by high_optimal_size rows 1 preceding)
+                                                          sum_with_prev,
+                max(high_optimal_size) over () max_high_size
+           from v\$pga_target_advice_histogram
+           where PGA_TARGET_FACTOR = $1)
+        where (sum_forward != 0 or
+              (sum_forward = 0 and sum_with_prev != 0))
+              and sum_backward != 0)
+    order by low;
+!
+
+  done
+
+  rm -f $ORA_TMP/pgaadvhist$$
+exit 0
+fi
+
+
+if [ "$1" = "sessions" ]; then
+
+  if [ "$ORA_USE_HASH" = "" ]; then
+    COLNM=sql_id
+    COLNM_HEADER=sql_id
+  else
+    COLNM="decode(sql_hash_value, 0, NULL, sql_hash_value)"
+    COLNM_HEADER=sql_hash
+  fi
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 6000
+    set linesize 200
+    col username format A20
+    col pid format A10
+    col cl_pid format A10
+    col sql_hash format A15
+    col sql_id format A18
+
+    select s.sid, s.serial#, s.PROCESS cl_pid, p.spid pid, s.username, 
+           s.type, s.server, s.PROGRAM, $COLNM $COLNM_HEADER, s.action
+    from v\$session s, v\$process p
+    where s.PADDR = p.addr ;
+!
+exit 0
+fi
+
+
+if [ "$1" = "degree" ]; then
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 6000
+    set linesize 100
+    col degree format A13
+    col instances format A13
+    col table_name format A30
+    col index_name format A30
+      col SID format 99999
+      col QCSID format 99999
+      col PID format 9999
+      col SPID format 9999999
+      col Inst format 999999
+      col Group format 999999
+      col Set format 999999
+      col Degree format 999999
+      col "Req Degree" format 999999
+      col "Wait Event" format A30
+
+    select table_name, degree, instances from user_tables order by 1;
+    select index_name, degree, instances from user_indexes order by 1;
+
+      select px.qcsid, px.SID "SID", p.PID, p.SPID "SPID", px.INST_ID "Inst",
+             px.SERVER_GROUP "Group", px.SERVER_SET "Set", 
+             px.DEGREE "Degree", px.REQ_DEGREE "Req Degree"
+      from GV\$SESSION s, GV\$PX_SESSION px, GV\$PROCESS p
+      where s.sid (+) = px.sid 
+        and s.inst_id (+) = px.inst_id 
+        and s.paddr = p.addr (+) 
+        and s.inst_id = p.inst_id (+) 
+      ORDER BY decode(px.QCINST_ID, NULL, px.INST_ID, px.QCINST_ID), px.QCSID, 
+               decode(px.SERVER_GROUP, NULL, 0, px.SERVER_GROUP),
+               px.SERVER_SET, px.INST_ID;
+
+!
+exit 0
+fi
+
+if [ "$1" = "colstats" ]; then
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 1000
+    set linesize 120
+    col table_name format A34
+    col column_name format A40
+    set tab      off
+
+    select table_name, column_name, num_distinct, num_nulls
+    from user_tab_columns
+    order by 1, 2;
+!
+exit 0
+fi
+
+if [ "$1" = "tabstats" ]; then
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 10000
+    set linesize 90
+    col table_name format A34
+    col column_name format A34
+    col Size format A10
+    col avg_row_len format A10
+    set tab      off
+
+    select table_name, num_rows Cardinality,
+           lpad(decode(avg_row_len, NULL, '?', avg_row_len),10, ' ')avg_row_len,
+           lpad(decode(BLOCKS, NULL, '?', round(BLOCKS*8/1024)+1) || ' MB',
+                       10, ' ') "Size", degree
+    from user_tables order by 1;
+!
+exit 0
+fi
+
+if [ "$1" = "snap" ]; then
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 10000
+    set linesize 80
+    col status format A15
+    col name format A20
+
+    select name, status
+    from all_snapshots order by 1;
+!
+exit 0
+fi
+
+
+if [ "$1" = "asm" ]; then
+  sqlplus -s  /NOLOG  << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+  connect $DBUSER
+
+  select name, total_mb, free_mb from v\$asm_diskgroup;
+!
+exit 0
+fi
+
+
+if [ "$1" = "space" ]; then
+
+  if [ "$2" != "" ]; then
+    EXTRA_PRED="AND fs.tablespace_name='$2'"
+  else
+    EXTRA_PRED=""
+  fi
+
+  sqlplus -s  /NOLOG  << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+  connect $DBUSER
+  
+    set pagesize 10000
+    set linesize 140
+    col status format A15
+    col name format A20
+
+     select ts.TABLESPACE_NAME, total_space_mb,
+            nvl(free_space_mb, 0) free_space_mb, 
+            nvl(round(free_space_mb*100/total_space_mb),0) "FREE_SPACE_%" 
+     from (select TABLESPACE_NAME, round(sum(BYTES)/1024/1024) free_space_mb 
+           from dba_free_space group by TABLESPACE_NAME) fs, 
+        (select TABLESPACE_NAME, round(sum(BYTES)/1024/1024) total_space_mb 
+         from dba_data_files group by TABLESPACE_NAME) ts 
+     where fs.TABLESPACE_NAME(+)=ts.TABLESPACE_NAME ${EXTRA_PRED}
+     order by 2;
+
+!
+exit 0
+fi
+
+if [ "$1" = "params" ]; then
+
+  if [ "$2" != "" ]; then
+    PAT="%${2}%"
+  else
+    PAT="%"
+  fi
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 10000
+    set linesize 150
+
+    col name format A45
+    col value format A20
+    col description format A70
+
+    select ksppinm name, ksppstvl value, ksppdesc description 
+    from x\$ksppi x, x\$ksppcv y 
+    where (x.indx = y.indx) 
+      and ksppinm like '$PAT'
+    order by name;
+
+!
+exit 0
+fi
+
+if [ "$1" = "bc" ]; then
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 10000
+    set linesize 80
+
+    select * from (
+      select /*+ ordered use_hash(obj\$ v\$bh) */ name, count(*)
+      from obj\$, v\$bh
+      where obj\$.dataobj#=objd group by name order by 2 desc)
+    where rownum <= 10 ;
+
+!
+exit 0
+fi
+
+if [ "$1" = "events" ]; then
+
+  if [ "$2" = "px" ]; then
+
+    sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+      connect $DBUSER
+
+      set pagesize 6000
+      set linesize 120
+
+      col SID format 99999
+      col QCSID format 99999
+      col PID format 9999
+      col SPID format 9999999
+      col Inst format 999999
+      col Group format 999999
+      col Set format 999999
+      col Degree format 999999
+      col "Req Degree" format 999999
+      col "Wait Event" format A30
+      col sql_hash format A15
+
+      select px.qcsid, px.SID "SID", p.PID, p.SPID "SPID", px.INST_ID "Inst", 
+             px.SERVER_GROUP "Group", px.SERVER_SET "Set", 
+             px.DEGREE "Degree", px.REQ_DEGREE "Req Degree", 
+             w.event "Wait Event", s.SQL_HASH_VALUE hash_value
+      from GV\$SESSION s, GV\$PX_SESSION px, GV\$PROCESS p, GV\$session_wait w 
+      where s.sid (+) = px.sid 
+        and s.inst_id (+) = px.inst_id 
+        and s.sid = w.sid (+) 
+        and s.inst_id = w.inst_id (+) 
+        and s.paddr = p.addr (+) 
+        and s.inst_id = p.inst_id (+) 
+      ORDER BY decode(px.QCINST_ID, NULL, px.INST_ID, px.QCINST_ID), px.QCSID, 
+               decode(px.SERVER_GROUP, NULL, 0, px.SERVER_GROUP),
+               px.SERVER_SET, px.INST_ID;
+!
+  else    
+    sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+      connect $DBUSER
+
+      set pagesize 10000
+      set linesize 80
+
+      select event, count(*)
+      from v\$session_wait 
+      where wait_time = 0 group by event;
+!
+  fi
+exit 0
+fi
+
+if [ "$1" = "temp" ]; then
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 10000
+    set linesize 80
+    col file_name format A40
+    col USED_SPACE format A20
+    col MAX_USED_SPACE format A20
+
+
+    select round(used_blocks*(select max(BLOCK_SIZE) 
+                              from dba_tablespaces 
+                              where tablespace_name='SYSTEM')
+             /1024/1024)+1 || ' MB (used)' as used_space, 
+           round(max_used_blocks*8/1024)+1 ||' MB (max used)' as max_used_space
+    from v\$sort_segment;
+
+    select sum(round(BYTES/1024/1024)+1) total_size_mb
+    from dba_temp_files ;
+!
+  exit 0
+fi
+
+if [ "$1" = "sort_usage" ]; then
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 10000
+    set linesize 200
+
+    select * from v\$sort_usage where tablespace = 'TS_TEMP';
+    select * from v\$sort_segment where tablespace_name = 'TS_TEMP';
+    rem select * from v\$temp_space_header where tablespace_name = 'TS_TEMP';
+    select * from v\$temp_extent_pool where tablespace_name = 'TS_TEMP';
+!
+  exit 0
+fi
+
+if [ "$1" = "sga_stats" ]; then
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 10000
+    set linesize 200
+
+    prompt
+    prompt SGA DYNAMIC COMPNENTS
+    select substr(COMPONENT,1,25) COMPONENT,
+          CURRENT_SIZE/1024/1024 CURRENT_SIZE_mb,
+          MIN_SIZE/1024/1024 MIN_SIZE_MB, MAX_SIZE/1024/1024 MAX_SIZE_MB,
+          LAST_OPER_TYPE, LAST_OPER_MODE
+    from v\$sga_dynamic_components;
+
+    prompt
+    prompt CURRENT SGA RESIZE OPERATIONS
+    select COMPONENT, OPER_TYPE, OPER_MODE, PARAMETER
+    from   v\$sga_current_resize_ops;
+!
+  exit 0
+fi
+
+if [ "$1" = "exptbs" ]; then
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|selected"
+
+    connect $DBUSER
+
+    set pagesize 0
+    set linesize 80
+
+    select '#!/bin/ksh'||chr(10)||chr(10)||'svrmgrl <<!' from dual;
+    select '  connect $DBUSER' from dual;
+
+    select '  alter tablespace ' || TABLESPACE_NAME || ' read only;' 
+    from dba_tablespaces 
+    where TABLESPACE_NAME != 'SYSTEM' and contents = 'PERMANENT' 
+          and tablespace_name not in (select TABLESPACE_NAME 
+                                      from dba_rollback_segs);
+
+    select '!' from dual;
+!
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|selected" > $ORA_TMP/lst$$
+
+    connect $DBUSER
+
+    set pagesize 0
+    set linesize 80
+
+    select TABLESPACE_NAME from dba_tablespaces 
+    where TABLESPACE_NAME != 'SYSTEM' and contents = 'PERMANENT'
+          and tablespace_name not in (select TABLESPACE_NAME 
+                                      from dba_rollback_segs);
+
+!
+  LST_TBS=`cat $ORA_TMP/lst$$`
+  LST_TBS=`echo $LST_TBS | sed -e 's/ /,/g'`
+  rm -f $ORA_TMP/lst$$
+
+  echo "exp TRANSPORT_TABLESPACE=y TABLESPACES=$LST_TBS"
+  echo
+exit 0
+fi
+
+if [ "$1" = "imptbs" ]; then
+
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|selected" > $ORA_TMP/lst$$
+
+    connect $DBUSER
+
+    set pagesize 0
+    set linesize 80
+
+    select /*+ ordered use_hash(t) */ '''' || file_name || ''''
+    from dba_data_files f, dba_tablespaces t 
+    where t.TABLESPACE_NAME = f.TABLESPACE_NAME 
+          and t.TABLESPACE_NAME != 'SYSTEM' and t.contents = 'PERMANENT'
+          and t.tablespace_name not in (select TABLESPACE_NAME 
+                                      from dba_rollback_segs);
+
+!
+
+  LST_FILES=`cat $ORA_TMP/lst$$`
+  LST_FILES=`echo $LST_FILES | sed -e 's/ /,/g'`
+  rm -f $ORA_TMP/lst$$
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|selected" > $ORA_TMP/lst$$
+
+    connect $DBUSER
+
+    set pagesize 0
+    set linesize 80
+
+    select TABLESPACE_NAME from dba_tablespaces 
+    where TABLESPACE_NAME != 'SYSTEM' and contents = 'PERMANENT'
+          and tablespace_name not in (select TABLESPACE_NAME 
+                                      from dba_rollback_segs);
+
+!
+  LST_TBS=`cat $ORA_TMP/lst$$`
+  LST_TBS=`echo $LST_TBS | sed -e 's/ /,/g'`
+  rm -f $ORA_TMP/lst$$
+
+  echo "#!/bin/ksh"
+  echo
+  echo
+  echo "imp LOG=export.log TRANSPORT_TABLESPACE=y BUFFER=100000000 DATAFILES=$LST_FILES TABLESPACES=$LST_TBS"
+  echo 
+  echo "svrmgrl << !"
+  echo
+  echo "  connect $DBUSER"
+  
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|selected"
+
+    connect $DBUSER
+
+    set pagesize 0
+    set linesize 80
+
+    select '  alter tablespace ' || TABLESPACE_NAME || ' read write;' 
+    from dba_tablespaces 
+    where TABLESPACE_NAME != 'SYSTEM' and contents = 'PERMANENT'
+          and tablespace_name not in (select TABLESPACE_NAME 
+                                      from dba_rollback_segs);
+
+    select '!' from dual;
+!
+
+  exit 0
+fi
+
+if [ "$1" = "longops" ]; then
+
+  if [ "$ORA_USE_HASH" = "" ]; then
+    COLNM=sql_id
+    COLNM_HEADER=sql_id
+  else
+    COLNM=sql_hash_value
+    COLNM_HEADER=sql_hash
+  fi
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set linesize 120
+    column opname format a30 wrap
+    
+    select $COLNM $COLNM_HEADER, opname, sofar, totalwork,
+           round(sofar*100/totalwork) percent, 
+           round(elapsed_seconds/60) "Elapsed (min)", 
+           decode(sofar,0,0,round(elapsed_seconds*(totalwork-sofar)/
+                  (sofar*60))) "To go (min)",
+       context dfo
+  from v\$session_longops  
+  where sofar != totalwork; 
+!
+exit 0
+fi
+
+if [ "$1" = "sga" ]; then
+  sqlplus -s /NOLOG << ! | egrep -v "Connected"
+
+    connect $DBUSER
+
+    set pagesize 6000
+    set tab      off
+    set linesize 140
+    set echo off 
+    repfooter off;
+    set timing off veri off space 1 flush on pause off termout on numwidth 10;
+
+    select nvl(pool, 'Total') pool, 
+           decode(name, NULL, decode(pool, NULL, NULL, '(total)'), name) name,
+           round(sum(bytes)/1024) as size_kb 
+    from v\$sgastat 
+    where pool is not null
+          and name in ('free memory', 'PX msg pool', 'sql area', 
+                       'library cache')
+    group by rollup(pool, name)
+    order by 3;
+!
+  exit 0
+fi
+
+if [ "$1" = "process" ]; then
+
+  version;
+
+  if [ $PGA_ADVICE -eq 1 ] ; then
+    FREEABLE="round(PGA_FREEABLE_MEM/1024) freeable, "
+  else
+    FREEABLE=""
+  fi
+
+  MAX=""
+
+  if [ "$2" != "" ]; then
+    MAX="and round(PGA_MAX_MEM/1024/1024) > $2"
+  fi
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|PGA_USED_MEM|selected"
+ 
+      connect $DBUSER
+
+      set pagesize 6000
+      set tab      off
+      set linesize 140
+      set echo off 
+      col prg format A20
+      repfooter off;
+      set timing off veri off space 1 flush on pause off termout on numwidth 10;
+
+      select p.pid, p.spid, substr(p.program, 10, 20) prg,
+             round(PGA_USED_MEM/1024) used, 
+             round(PGA_ALLOC_MEM/1024) alloc,
+             $FREEABLE  round(PGA_MAX_MEM/1024) max
+      from v\$process p
+      where spid is not NULL $MAX
+      order by 4;
+!
+
+  exit 0;
+fi
+
+if [ "$1" = "pga" ]; then
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|PGA_USED_MEM|selected" > $ORA_TMP/pgaout$$
+
+    connect $DBUSER
+
+    set pagesize 0
+    set tab      off
+    set linesize 140
+    set echo off 
+    repfooter off;
+    set timing off veri off space 1 flush on pause off termout on numwidth 10;
+    
+    select SPID, round(PGA_USED_MEM/1024), round(PGA_ALLOC_MEM/1024),
+           round(PGA_MAX_MEM/1024)
+    from v\$process
+    where spid is not NULL;
+!
+  printf "%-20s %10s %10s %10s %15s %15s\n" NAME PID "USED(KB)" "ALLOC(KB)" "MAX_ALLOC(KB)" "MAP_SIZE(KB)"
+
+  TOTAL_SIZE=0
+  cat $ORA_TMP/pgaout$$ | while read a; do
+    if [ "$a" = "" ]; then
+      continue;
+    fi
+    set $a
+
+    PID=$1
+    USED=$2
+    ALLOC=$3
+    MAX=$4
+
+    SIZE=0
+    
+    KB=`/usr/proc/bin/pmap -x $PID 2>/dev/null | grep anon | grep -v exec |  awk '{ s += $2 } END { print s}'`
+    if  [ "$KB" != "" ]; then
+      let SIZE="SIZE+KB"
+    fi
+
+    KB=`/usr/proc/bin/pmap -x $PID 2>/dev/null | grep heap | awk '{ s += $2 } END { print s}'`
+    if  [ "$KB" = "" ]; then
+      continue;
+    fi
+    let SIZE="SIZE+KB"
+
+    ps -edf | grep "$PID " | grep -v grep | read com
+
+    if [ "$com" = "" ]; then
+      continue;
+    fi
+    set $com
+    PNAME=$8
+
+    let TOTAL_SIZE="TOTAL_SIZE+SIZE/1024"
+    
+    printf "%-20s %10u %10u %10u %15u %15u\n" $PNAME $PID $USED $ALLOC $MAX $SIZE
+  done
+
+  TOTAL_USED=`cat $ORA_TMP/pgaout$$ | awk '{ s += $2 } END { print int(s/1024)}'`
+  TOTAL_ALLOC=`cat $ORA_TMP/pgaout$$ | awk '{ s += $3 } END { print int(s/1024)}'`
+  MAX_MAX=`cat $ORA_TMP/pgaout$$ | awk '{ if (max < $3) max = $3} END {print max}'`
+
+  printf "-------------------------------------------------------------------------------------\n"
+  printf "%-20s %10s %9uM %9uM %15u %14uM\n" "Total" " " $TOTAL_USED $TOTAL_ALLOC $MAX_MAX $TOTAL_SIZE
+  rm -f $ORA_TMP/pgaout$$
+  echo
+  exit 0
+fi
+
+#
+# Detail of pga
+#
+if [ "$1" = "pga_detail" ]; then
+
+  if [ "$2" = "" ]; then
+    usage "OS pid or size threshold must be specified"
+  fi
+
+  if [ "$2" = "-mem" ] ; then
+    if [ "$3" = "" ]; then
+      usage "memory threshold not specified"
+    else
+      PRED="PGA_ALLOC_MEM > $3 * 1024 * 1024"
+      OSPID=""
+    fi
+  else
+    PRED="SPID=$2"
+    OSPID=$2
+  fi
+
+  sqlplus -s /NOLOG << ! | grep '###' | sed -e 's/.*###\(.*\)###\(.*\)###\(.*\)###/\1 \2 \3/g' > $ORA_TMP/pid$$
+  
+     connect $DBUSER
+    
+     select '###' || pid || '###' || spid || '###' || round(pga_alloc_mem/1024/1024) || '###' version
+     from v\$process
+     where $PRED;
+!
+
+  FOUND=0
+  cat $ORA_TMP/pid$$ | while read a; do
+    set $a
+    ORA_PID=$1
+    OSPID=$2
+    MEM=$3
+    FOUND=1
+
+    echo
+    echo "Detail for process $OSPID (PGA allocated is $MEM MB)"
+    echo '****************************************************'
+  
+    sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Statement processed|Function returned|rows selected"
+
+      connect $DBUSER
+
+      set pagesize 6000
+      set linesize 200
+      set tab      off
+      set echo off 
+      set long     4000
+
+      oradebug setmypid
+      oradebug call ksmpgd_get_detail $ORA_PID
+
+      ! sleep 10
+
+      select PID, SERIAL#, CATEGORY, NAME, HEAP_NAME, BYTES, ALLOCATION_COUNT,
+             HEAP_DESCRIPTOR, PARENT_HEAP_DESCRIPTOR
+      from v\$process_memory_detail
+      where PID=$ORA_PID
+      order by bytes;
+!
+
+  done
+
+  if [ $FOUND -eq 0 -a "$OSPID" != "" ]; then
+    usage "OS pid $OSPID does not exists in v\$process"
+  fi
+
+  rm -f $ORA_TMP/pid$$
+
+exit 0
+fi
+
+
+if [ "$1" = "binds" ]; then
+
+  if [ "$2" = "" ]; then
+    usage "Cursor hash value is missing"
+  fi
+
+  if [ "$ORA_USE_HASH" = "" ]; then
+    COLNM=sql_id
+    COLNM_HEADER=sql_id
+  else
+    COLNM=hash_value
+    COLNM_HEADER=sql_hash
+  fi
+
+  version;
+
+  setup_hash_value hash_value sql_id $2 $3
+  shift $SHIFT_PARAM
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 600
+    set tab      off
+    set linesize 220
+    set echo off 
+    col sql_text format A75 WORD_WRAP
+    repfooter off;
+    col BIND_NAME format A15
+    column VALUE_STRING format A20 wrap
+    column CAPTURED format A10
+    column LAST_CAPTURED format A20
+    col sql_hash format A15
+    col sql_id format A18
+    col sql_text format A75 WORD_WRAP
+
+    select $COLNM ||
+           decode(child_number, 0, '', '/'||child_number) $COLNM_HEADER, 
+           sql_text 
+    from v\$sql
+    where child_number=$CNUM and $COLNAME=$HVAL;
+
+    select NAME BIND_NAME, POSITION POS, DATATYPE_STRING BIND_TYPE, 
+           WAS_CAPTURED CAPTURED,
+           case
+             when WAS_CAPTURED='YES' and LAST_CAPTURED is null
+             then 'YES'
+             else 'NO'
+           end "Reverted",
+           TO_CHAR(LAST_CAPTURED, 'HH:MI:SS (DD Mon)') LAST_CAPTURED, 
+           VALUE_STRING
+    from  v\$sql_bind_capture
+    where $COLNAME  = $HVAL and CHILD_NUMBER=$CNUM;
+!
+    
+exit 0
+fi
+
+if [ "$1" = "optenv" ]; then
+
+  if [ "$2" = "" ]; then
+    usage "Cursor hash value is missing"
+  fi
+
+  version;
+
+  # get SQL id
+  shift
+  setup_hash_value hash_value sql_id $1 $2
+  shift $SHIFT_PARAM
+
+  if [ "$1" != "" ]; then
+    PFIL=" and KQLFSQCE_PNAME like '%${1}%'"
+  else
+    PFIL=""
+  fi
+
+  if [ "$COLNAME" = "sql_id" ]; then
+    COLNAME_KQLFSQCE=KQLFSQCE_SQLID
+  else
+    COLNAME_KQLFSQCE=KQLFSQCE_HASH
+  fi
+
+  if [ "$ORA_USE_HASH" = "" ]; then
+    COLNM=sql_id
+    COLNM_HEADER=sql_id
+  else
+    COLNM=hash_value
+    COLNM_HEADER=sql_hash
+  fi
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 600
+    set tab      off
+    set linesize 220
+    set echo off 
+    col sql_text format A75 WORD_WRAP
+    repfooter off;
+    col sql_text format A75 WORD_WRAP
+    col sql_hash format A15
+    col sql_id format A18
+
+    select $COLNM ||
+           decode(child_number, 0, '', '/'||child_number) $COLNM_HEADER, 
+           sql_text 
+    from v\$sql
+    where child_number=$CNUM 
+          and $COLNAME = $HVAL;
+
+    select KQLFSQCE_PNAME name, KQLFSQCE_PVALUE value,
+           decode(bitand(KQLFSQCE_FLAGS, 2), 0, 'NO', 'YES') is_default 
+    from X\$KQLFSQCE 
+    where $COLNAME_KQLFSQCE=$HVAL
+      and KQLFSQCE_CHNO=$CNUM $PFIL order by 3,1;
+!
+    
+exit 0
+fi
+
+if [ "$1" = "plan" ]; then
+
+  if [ "$2" = "" ]; then
+    usage "Cursor hash value is missing"
+  fi
+
+  version;
+
+  if [ "$ORA_USE_HASH" = "" ]; then
+    COLNM=sql_id
+    COLNM_HEADER=sql_id
+  else
+    COLNM=hash_value
+    COLNM_HEADER=sql_hash
+  fi
+
+  setup_hash_value hash_value sql_id $2 $3
+  shift $SHIFT_PARAM
+
+  if [ $VERSION_MAIN -lt 10 ]; then
+
+    sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 600
+    set tab      off
+    set linesize 220
+    set echo off 
+    set long     4000
+    col TQID         format A4
+    col "SLAVE SQL"  format A95 WORD_WRAP
+    col sql_hash format A15
+    col exec format 9999
+    col sql_text format A75 WORD_WRAP
+
+    repfooter off;
+    set timing off veri off space 1 flush on pause off termout on numwidth 10;
+    alter session set "_complex_view_merging"=false;
+
+    select $COLNM||decode(child_number, 0, '', '/'||child_number) $COLNM_HEADER, 
+           sql_text 
+    from v\$sql
+    where child_number = $CNUM 
+      and $COLNAME = $HVAL;
+
+    select '| Operation                       |  Name              |  Rows | Bytes|  Cost  |  TQ  |IN-OUT| PQ Distrib | Pstart| Pstop |' as "Plan Table" from dual
+    union all /* QWEKLOIPYRTJHH7 */
+    select '---------------------------------------------------------------------------------------------------------------------------' from dual
+    union all
+    select      rpad('| '||substr(lpad(' ',1*(depth))||operation||
+            decode(options, null,'',' '||options), 1, 33), 34, ' ')||'|'||
+       rpad(substr(object_name||' ',1, 19), 20, ' ')||'|'||
+       lpad(decode(cardinality,null,'  ',
+             decode(sign(cardinality-1000), -1, cardinality||' ', 
+       decode(sign(cardinality-1000000), -1, round(cardinality/1000)||'K', 
+       decode(sign(cardinality-1000000000), -1, round(cardinality/1000000)||'M', 
+                       round(cardinality/1000000000)||'G')))), 7, ' ') || '|' ||
+       lpad(decode(bytes,null,' ',
+                decode(sign(bytes-1024), -1, bytes||' ', 
+                decode(sign(bytes-1048576), -1, round(bytes/1024)||'K', 
+                decode(sign(bytes-1073741824), -1, round(bytes/1048576)||'M', 
+                       round(bytes/1073741824)||'G')))), 6, ' ') || '|' ||
+       lpad(decode(cost,null,' ',
+                decode(sign(cost-10000000), -1, cost||' ', 
+                decode(sign(cost-1000000000), -1, round(cost/1000000)||'M', 
+                       round(cost/1000000000)||'G'))), 8, ' ') || '|' ||
+       lpad(decode(object_node,null,' ',
+             substr(object_node,length(object_node)-3,1) || ',' || 
+             substr(object_node,length(object_node)-1,2))||' ', 6, ' ') || '|' ||
+       lpad(decode(other_tag, null,' ',
+            decode(other_tag,'PARALLEL_TO_SERIAL', ' P->S', 
+            decode(other_tag, 'PARALLEL_TO_PARALLEL', ' P->P', 
+            decode(other_tag, 'PARALLEL_COMBINED_WITH_PARENT', ' PCWP', 
+            decode(other_tag, 'PARALLEL_FROM_SERIAL', ' S->P', 
+            decode(other_tag, 'PARALLEL_COMBINED_WITH_CHILD', ' PCWC', 
+               decode(other_tag,null,' ',other_tag)))))))||' ', 6, ' ') || '|' ||
+       rpad(' '||decode(distribution, null,' ',
+          decode(distribution, 'PARTITION (ROWID)', 'PART (RID)', 
+          decode(distribution, 'PARTITION (KEY)', 'PART (KEY)', 
+          decode(distribution, 'ROUND-ROBIN', 'RND-ROBIN', 
+          decode(distribution, 'BROADCAST', 'BROADCAST',
+                 distribution))))), 12, ' ') || '|' ||
+       lpad(decode(partition_start, 'ROW LOCATION', 'ROWID', 
+            decode(partition_start, 'KEY', 'KEY', decode(partition_start, 
+            'KEY(INLIST)', 'KEY(I)', decode(substr(partition_start, 1, 6), 
+            'NUMBER', substr(substr(partition_start, 8, 10), 1, 
+            length(substr(partition_start, 8, 10))-1), 
+     decode(partition_start,null,' ',partition_start)))))||' ', 7, ' ')|| '|' ||
+       lpad(decode(partition_stop, 'ROW LOCATION', 'ROW L', 
+          decode(partition_stop, 'KEY', 'KEY', decode(partition_stop, 
+          'KEY(INLIST)', 'KEY(I)', decode(substr(partition_stop, 1, 6), 
+          'NUMBER', substr(substr(partition_stop, 8, 10), 1, 
+          length(substr(partition_stop, 8, 10))-1), 
+          decode(partition_stop,null,' ',partition_stop)))))||' ',
+                 7, ' ')||'|' as "Explain plan"
+   from 
+     (select /*+ no_merge */ hash_value sql_hash, ID, DEPTH, POSITION, 
+                            OPERATION, OPTIONS,
+                            COST COST, CARDINALITY CARDINALITY, BYTES BYTES, 
+                            OBJECT_NODE, 
+                            OBJECT_OWNER, OBJECT_NAME, OTHER_TAG,
+                            PARTITION_START, 
+			    PARTITION_STOP, DISTRIBUTION
+      from  v\$sql_plan vp
+      where $COLNAME = $HVAL and CHILD_NUMBER = $CNUM)
+    union all
+    select '---------------------------------------------------------------------------------------------------------------------------' from dual;
+
+  REM
+  REM Print slave sql
+  REM
+  select  /* QWEKLOIPYRTJHH7 */ decode(object_node,null,'',
+              substr(object_node,length(object_node)-3,1) || ',' || 
+              substr(object_node,length(object_node)-1,2)) TQID,
+       other "SLAVE SQL"
+  from v\$sql_plan vp
+  where other is not NULL and 
+        $COLNAME = $HVAL and CHILD_NUMBER=$CNUM;
+!
+
+  else
+
+    shift
+    FMT=$*
+
+    if [ "$FMT" = "" ]; then
+      FMT="ALL"
+    fi
+
+    sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 600
+    set tab      off
+    set linesize 220
+    set echo off 
+    repfooter off;
+
+    select * from table(dbms_xplan.display_cursor($HVAL, $CNUM, '$FMT'));
+!
+    
+  fi
+
+exit 0
+
+fi
+
+
+if [ "$1" = "wplan" ]; then
+
+  if [ "$2" = "" ]; then
+    usage "Cursor hash value is missing"
+  fi
+
+  if [ "$ORA_USE_HASH" = "" ]; then
+    COLNM=sql_id
+    COLNM_HEADER=sql_id
+  else
+    COLNM=hash_value
+    COLNM_HEADER=sql_hash
+  fi
+
+  setup_hash_value hash_value sql_id $2 $3
+  shift $SHIFT_PARAM
+
+  sqlplus -s /NOLOG << ! | egrep -v  "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 600
+    set tab      off
+    set linesize 220
+    set echo off 
+    set long     4000
+    col TQID         format A4
+    col "SLAVE SQL"  format A95 WORD_WRAP
+    col address format A12
+    col sql_hash format A15
+    col sql_id format A18
+    col exec format 9999
+    col sql_text format A75 WORD_WRAP
+
+    repfooter off;
+    set timing off veri off space 1 flush on pause off termout on numwidth 10;
+    alter session set "_complex_view_merging"=false;
+
+    select $COLNM ||
+           decode(child_number, 0, '', '/'||child_number) $COLNM_HEADER, 
+           sql_text 
+    from v\$sql
+    where child_number = $CNUM 
+      and $COLNAME = $HVAL;
+
+    select '| Operation                       |  Name              | Bytes | OMem | 1Mem |  O/1/M  |  Last  | LastMem | Time | ' as "Workarea Table" from dual
+    union all
+    select '------------------------------------------------------------------------------------------------------------------' from dual
+    union all
+    select rpad('| '||substr(lpad(' ',1*(depth))||operation||
+            decode(options, null,'',' '||options), 1, 33), 34, ' ')||'|'||
+       rpad(substr(object_name||' ',1, 19), 20, ' ')||'|'||
+       lpad(decode(bytes,null,' ',
+                decode(sign(bytes-1024), -1, bytes||' ', 
+                decode(sign(bytes-1048576), -1, round(bytes/1024)||'K', 
+                decode(sign(bytes-1073741824), -1, round(bytes/1048576)||'M', 
+                       round(bytes/1073741824)||'G')))), 7, ' ') || '|' ||
+       lpad(decode(estimated_optimal_size,null,' ',
+                decode(sign(estimated_optimal_size-1024), -1, estimated_optimal_size||'K', 
+                decode(sign(estimated_optimal_size-1048576), -1, round(estimated_optimal_size/1024)||'M', 
+                decode(sign(estimated_optimal_size-1073741824), -1, round(estimated_optimal_size/1048576)||'G', 
+                       round(estimated_optimal_size/1073741824)||'T')))), 6, ' ') || '|' ||
+       lpad(decode(estimated_onepass_size,null,' ',
+                decode(sign(estimated_onepass_size-1024), -1, estimated_onepass_size||'K', 
+                decode(sign(estimated_onepass_size-1048576), -1, round(estimated_onepass_size/1024)||'M', 
+                decode(sign(estimated_onepass_size-1073741824), -1, round(estimated_onepass_size/1048576)||'G', 
+                       round(estimated_onepass_size/1073741824)||'T')))), 6, ' ') || '|' ||
+       lpad(decode(OPTIMAL_EXECUTIONS, NULL, ' ', 
+                   decode(TOTAL_EXECUTIONS, 0, '-',
+                   OPTIMAL_EXECUTIONS || '/' || ONEPASS_EXECUTIONS || '/' || MULTIPASSES_EXECUTIONS)), 8, ' ') || ' |' ||
+       lpad(decode(LAST_EXECUTION, NULL, ' ',
+                   decode(TOTAL_EXECUTIONS, 0, '- ',
+                   LAST_EXECUTION)), 8, ' ') || '|' ||
+       lpad(decode(last_memory_used,null,' ',
+                decode(TOTAL_EXECUTIONS, 0, '- ',
+                decode(sign(last_memory_used-1024), -1, last_memory_used||'K', 
+                decode(sign(last_memory_used-1048576), -1, round(last_memory_used/1024)||'M', 
+                decode(sign(last_memory_used-1073741824), -1, round(last_memory_used/1048576)||'G', 
+                       round(last_memory_used/1073741824)||'T'))))), 9, ' ') || '|' ||
+       lpad(decode(active_time,null,' ',
+                decode(TOTAL_EXECUTIONS, 0, '- ',
+                decode(sign(round(active_time)-1000), -1, round(active_time)||'ms', 
+                decode(sign(round(active_time/1000)-1000), -1, round(active_time/1000)||'s', 
+                decode(sign(round(active_time/1000)-3600), -1, round(active_time/1000/60)||'m', 
+                       round(active_time/1000/3600)||'h'))))), 6, ' ') || '|' as "Workarea stats"
+    from 
+      (select /*+ no_merge ordered use_nl(w) */
+              p.hash_value, p.ID, p.DEPTH, p.POSITION, p.OPERATION, p.OPTIONS,
+              p.BYTES BYTES, p.OBJECT_NODE, p.OBJECT_OWNER, p.OBJECT_NAME, 
+              round(w.estimated_optimal_size/1024) estimated_optimal_size,
+              round(w.estimated_onepass_size/1024) estimated_onepass_size, 
+              w.TOTAL_EXECUTIONS, w.OPTIMAL_EXECUTIONS, w.ONEPASS_EXECUTIONS,
+              w.MULTIPASSES_EXECUTIONS, w.LAST_EXECUTION, 
+              round(w.last_memory_used/1024) last_memory_used, 
+              round(w.active_time/1000) active_time
+       from v\$sql_plan p, v\$sql_workarea w 
+       where p.address = w.address(+) and p.id = w.operation_id(+) 
+            and p.$COLNAME = $HVAL
+            and w.$COLNAME(+) = $HVAL
+            and p.child_number=$CNUM
+            and w.child_number(+)=$CNUM)
+    union all
+    select '------------------------------------------------------------------------------------------------------------------' from dual;
+
+REM
+REM Print slave sql
+REM
+select /* QWEKLOIPYRTJHH7 */ decode(object_node,null,'',
+              substr(object_node,length(object_node)-3,1) || ',' || 
+              substr(object_node,length(object_node)-1,2)) TQID,
+       other "SLAVE SQL"
+  from v\$sql_plan vp
+  where other is not NULL and 
+        $COLNAME = $HVAL and child_number=$CNUM;
+
+!
+
+exit 0
+fi
+
+if [ "$1" = "pxplan" ]; then
+
+  if [ "$2" = "" ]; then
+    usage "Cursor hash value is missing"
+  fi
+
+  echo
+  echo "---------------------------------"
+  echo "         QC plan  "
+  echo "---------------------------------"
+  $ORA_PROG $ARGS plan $2
+
+  setup_hash_value hash_value sql_id $2 $3
+  shift $SHIFT_PARAM
+
+  if [ "$ORA_USE_HASH" = "" ]; then
+    COLNM=sql_id
+    COLNM_HEADER=sql_id
+  else
+    COLNM=hash_value
+    COLNM_HEADER=sql_hash
+  fi
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|ADDRESS|selected" > $ORA_TMP/pxplanout$$
+    connect $DBUSER
+
+    set pagesize 0
+    set tab      off
+    set linesize 140
+    set echo off 
+    repfooter off;
+    set timing off veri off space 1 flush on pause off termout on numwidth 10;
+    
+    select distinct sv.$COLNAME, sv.object_node
+    from v\$sql_plan qc, 
+        (SELECT object_node, $COLNAME
+         FROM v\$sql_plan
+         WHERE id=0 AND object_node is not null) sv
+    WHERE qc.$COLNAME = $HVAL AND qc.child_number = $CNUM
+      AND id != 0 AND qc.object_node = sv.object_node
+    order by sv.object_node;
+!
+
+  cat $ORA_TMP/pxplanout$$ | while read a; do
+    if [ "$a" = "" ]; then
+      continue;
+    fi
+    set $a
+
+    echo
+    echo "---------------------------------"
+    echo "           DFO $2  " 
+    echo "---------------------------------"
+    $ORA_PROG $ARGS plan $1
+
+  done
+
+exit 0
+fi
+
+if [ "$1" = "mpass" ]; then
+
+  if [ "$ORA_USE_HASH" = "" ]; then
+    COLNM=sql_id
+    COLNM_HEADER=sql_id
+  else
+    COLNM=hash_value
+    COLNM_HEADER=sql_hash
+  fi
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|ADDRESS|selected" > $ORA_TMP/mpassout$$
+  connect $DBUSER
+
+  set pagesize 0
+  set tab      off
+  set linesize 140
+  set echo off
+  repfooter off;
+  set timing off veri off space 1 flush on pause off termout on numwidth 10;
+
+  select distinct $COLNM, child_number
+  from v\$sql_workarea
+  where MULTIPASSES_EXECUTIONS > 0
+  order by 1, 2;
+!
+
+  cat $ORA_TMP/mpassout$$ | while read a; do
+    if [ "$a" = "" ]; then
+      continue;
+    fi
+    set $a
+
+    echo
+    echo "--------------------------------------"
+    echo "       Multi-pass cursor $1/$2 "
+    echo "--------------------------------------"
+    $ORA_PROG $ARGS wplan $1/$2
+
+  done
+
+  rm -f $ORA_TMP/mpassout$$
+
+  exit 0
+fi
+
+if [ "$1" = "onepass" ]; then
+
+  if [ "$ORA_USE_HASH" = "" ]; then
+    COLNM=sql_id
+    COLNM_HEADER=sql_id
+  else
+    COLNM=hash_value
+    COLNM_HEADER=sql_hash
+  fi
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|ADDRESS|selected" > $ORA_TMP/mpassout$$
+  connect $DBUSER
+
+  set pagesize 0
+  set tab      off
+  set linesize 140
+  set echo off
+  repfooter off;
+  set timing off veri off space 1 flush on pause off termout on numwidth 10;
+
+
+  select distinct $COLNM, child_number
+  from v\$sql_workarea
+  where ONEPASS_EXECUTIONS > 0
+  order by 1, 2;
+!
+
+  cat $ORA_TMP/mpassout$$ | while read a; do
+    if [ "$a" = "" ]; then
+      continue;
+    fi
+    set $a
+
+    echo
+    echo "--------------------------------------"
+    echo "      One-pass cursor $1/$2 "
+    echo "--------------------------------------"
+    $ORA_PROG $ARGS wplan $1/$2
+
+  done
+
+  rm -f $ORA_TMP/mpassout$$
+
+  exit 0
+fi
+
+
+if [ "$1" = "pxwplan" ]; then
+
+  if [ "$2" = "" ]; then
+    usage "Cursor hash value is missing"
+  fi
+
+  if [ "$ORA_USE_HASH" = "" ]; then
+    COLNM=sql_id
+    COLNM_HEADER=sql_id
+  else
+    COLNM=hash_value
+    COLNM_HEADER=sql_hash
+  fi
+
+  echo
+  echo "---------------------------------"
+  echo "         QC workarea plan  "
+  echo "---------------------------------"
+  $ORA_PROG $ARGS wplan $2
+
+  setup_hash_value hash_value sql_id $2 $3
+  shift $SHIFT_PARAM
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|ADDRESS|selected" > $ORA_TMP/pxwplanout$$
+    connect $DBUSER
+
+    set pagesize 0
+    set tab      off
+    set linesize 140
+    set echo off 
+    repfooter off;
+    set timing off veri off space 1 flush on pause off termout on numwidth 10;
+    
+    select distinct sv.$COLNM $COLNM_HEADER, sv.object_node
+    from v\$sql_plan qc, 
+        (SELECT object_node, $COLNM
+         FROM v\$sql_plan
+         WHERE id=0 AND object_node is not null) sv
+    WHERE qc.$COLNAME = $HVAL AND qc.child_number = $CNUM
+      AND id != 0 AND qc.object_node = sv.object_node
+    order by sv.object_node;
+!
+
+  cat $ORA_TMP/pxwplanout$$ | while read a; do
+    if [ "$a" = "" ]; then
+      continue;
+    fi
+    set $a
+
+    echo
+    echo "----------------------------------------"
+    echo "           DFO $2 workarea plan ($1)" 
+    echo "----------------------------------------"
+    $ORA_PROG $ARGS wplan $1
+
+  done
+
+exit 0
+fi
+
+if [ "$1" = "eplan" ]; then
+
+  if [ "$2" = "" ]; then
+    usage "Cursor hash value is missing"
+  fi
+
+  setup_hash_value hash_value sql_id $2 $3
+  shift $SHIFT_PARAM
+
+  version;
+
+  if [ "$ORA_USE_HASH" = "" ]; then
+    COLNM=sql_id
+    COLNM_HEADER=sql_id
+  else
+    COLNM=hash_value
+    COLNM_HEADER=sql_hash
+  fi
+
+  if [ $VERSION_MAIN -lt 10 ]; then
+
+    sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+  
+      connect $DBUSER
+  
+      set pagesize 600
+      set tab      off
+      set linesize 140
+      set echo off 
+      set long     4000
+      col TQID         format A4
+      col "SLAVE SQL"  format A95 WORD_WRAP
+      col address format A12
+      col sql_hash format A15
+      col sql_hash format A18
+      col exec format 9999
+      col sql_text format A75 WORD_WRAP
+  
+      repfooter off;
+      set timing off veri off space 1 flush on pause off termout on numwidth 10;
+      alter session set "_complex_view_merging"=false;
+  
+      select $COLNM ||
+             decode(child_number, 0, '', '/'||child_number) $COLNM_HEADER, 
+             sql_text 
+      from v\$sql
+      where child_number=$CNUM 
+        and $COLNAME=$HVAL;
+  
+      select '| Operation                       |  Name              | Starts | E-Rows | A-Rows | Buffers | Reads  | Writes | E-Time |' as "Plan Table" from dual
+      union all /* QWEKLOIPYRTJHH7 */
+      select '------------------------------------------------------------------------------------------------------------------------' from dual
+      union all
+      select      rpad('| '||substr(lpad(' ',1*(depth))||operation||
+              decode(options, null,'',' '||options), 1, 33), 34, ' ')||'|'||
+         rpad(substr(object_name||' ',1, 19), 20, ' ')||'|'||
+         lpad(decode(starts,null,'  ',
+                  decode(sign(starts-1000), -1, starts||' ', 
+                  decode(sign(starts-1000000), -1, round(starts/1000)||'K', 
+                  decode(sign(starts-1000000000), -1, round(starts/1000000)||'M', 
+                         round(starts/1000000000)||'G')))), 8, ' ') || '|' ||
+         lpad(decode(cardinality,null,'  ',
+                  decode(sign(cardinality-1000), -1, cardinality||' ', 
+                  decode(sign(cardinality-1000000), -1, round(cardinality/1000)||'K', 
+                  decode(sign(cardinality-1000000000), -1, round(cardinality/1000000)||'M', 
+                         round(cardinality/1000000000)||'G')))), 8, ' ') || '|' ||
+         lpad(decode(outrows,null,'  ',
+                  decode(sign(outrows-1000), -1, outrows||' ', 
+                  decode(sign(outrows-1000000), -1, round(outrows/1000)||'K', 
+                  decode(sign(outrows-1000000000), -1, round(outrows/1000000)||'M', 
+                         round(outrows/1000000000)||'G')))), 8, ' ') || '|' ||
+         lpad(decode(crgets,null,' ',
+                  decode(sign(crgets-10000000), -1, crgets||' ', 
+                  decode(sign(crgets-1000000000), -1, round(crgets/1000000)||'M', 
+                         round(crgets/1000000000)||'G'))), 9, ' ') || '|' ||
+         lpad(decode(reads,null,' ',
+                  decode(sign(reads-10000000), -1, reads||' ', 
+                  decode(sign(reads-1000000000), -1, round(reads/1000000)||'M', 
+                         round(reads/1000000000)||'G'))), 8, ' ') || '|' ||
+         lpad(decode(writes,null,' ',
+                  decode(sign(writes-10000000), -1, writes||' ', 
+                  decode(sign(writes-1000000000), -1, round(writes/1000000)||'M', 
+                         round(writes/1000000000)||'G'))), 8, ' ') || '|' ||
+         lpad(decode(etime,null,' ',
+                  decode(sign(etime-10000000), -1, etime||' ', 
+                  decode(sign(etime-1000000000), -1, round(etime/1000000)||'M', 
+                         round(etime/1000000000)||'G'))), 8, ' ') || '|'  as "Explain plan"
+     from 
+       (select /*+ no_merge */
+               HASH_VALUE, ID, DEPTH, POSITION, OPERATION, OPTIONS,
+               COST COST, CARDINALITY CARDINALITY, BYTES BYTES, OBJECT_NODE, 
+               OBJECT_OWNER, OBJECT_NAME, OTHER_TAG, PARTITION_START, 
+               PARTITION_STOP, DISTRIBUTION, 
+               starts, OUTPUT_ROWS outrows, CR_BUFFER_GETS crgets, 
+               DISK_READS reads, DISK_WRITES writes, 
+               ELAPSED_TIME etime
+        from  v\$sql_plan_statistics_all
+        where $COLNAME = $HVAL and CHILD_NUMBER=$CNUM)
+      union all
+      select '------------------------------------------------------------------------------------------------------------------------' from dual;
+  
+    REM
+    REM Print slave sql
+    REM
+    select  /* QWEKLOIPYRTJHH7 */ decode(object_node,null,'',
+                substr(object_node,length(object_node)-3,1) || ',' || 
+                substr(object_node,length(object_node)-1,2)) TQID,
+         other "SLAVE SQL"
+    from v\$sql_plan vp
+    where other is not NULL and 
+          $COLNAME  = $HVAL and CHILD_NUMBER=$CNUM;
+!
+
+else
+
+  shift
+  FMT=$*
+
+  if [ "$FMT" = "" ]; then
+    FMT="RUNSTATS_TOT"
+  fi
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 600
+    set tab      off
+    set linesize 220
+    set echo off 
+    repfooter off;
+
+    select * from table(dbms_xplan.display_cursor($HVAL, $CNUM, '$FMT'));
+!
+fi
+
+exit 0
+fi
+
+if [ "$1" = "pxeplan" ]; then
+
+  if [ "$2" = "" ]; then
+    usage "Cursor hash value is missing"
+  fi
+
+  if [ "$ORA_USE_HASH" = "" ]; then
+    COLNM=sql_id
+    COLNM_HEADER=sql_id
+  else
+    COLNM=hash_value
+    COLNM_HEADER=sql_hash
+  fi
+
+  echo
+  echo "---------------------------------"
+  echo "         QC plan  "
+  echo "---------------------------------"
+  $ORA_PROG $ARGS eplan $2
+
+  setup_hash_value hash_value sql_id $2 $3
+  shift $SHIFT_PARAM
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|ADDRESS|selected" > $ORA_TMP/pxeplanout$$
+    connect $DBUSER
+
+    set pagesize 0
+    set tab      off
+    set linesize 140
+    set echo off 
+    repfooter off;
+    set timing off veri off space 1 flush on pause off termout on numwidth 10;
+    
+    select distinct sv.$COLNM $COLNM_HEADER, sv.object_node
+    from v\$sql_plan qc, 
+        (SELECT object_node, $COLNM
+         FROM v\$sql_plan
+         WHERE id=0 AND object_node is not null) sv
+    WHERE qc.$COLNAME = $HVAL AND qc.child_number = $CNUM
+      AND id != 0 AND qc.object_node = sv.object_node
+    order by sv.object_node;
+!
+
+  cat $ORA_TMP/pxeplanout$$ | while read a; do
+    if [ "$a" = "" ]; then
+      continue;
+    fi
+    set $a
+
+    echo
+    echo "---------------------------------"
+    echo "           DFO $2  " 
+    echo "---------------------------------"
+    $ORA_PROG $ARGS eplan $1
+
+  done
+
+exit 0
+fi
+
+if [ "$1" = "hash_to_sqlid" ]; then
+
+  if [ "$2" = "" ]; then
+    usage "Cursor hash value is missing"
+  fi
+
+  echo
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|ADDRESS|selected"
+    connect $DBUSER
+
+    set pagesize 0
+    set tab      off
+    set linesize 140
+    set echo off 
+    repfooter off;
+    set timing off veri off space 1 flush on pause off termout on numwidth 10;
+    
+    select 'SQL id is: ' || sql_id from v\$sql where hash_value = $2;
+!
+  exit 0
+fi
+
+if [ "$1" = "sharing" ]; then
+
+  if [ "$2" = "" ]; then
+    usage "Cursor sql_id is missing"
+  fi
+
+  version;
+
+  SQLID=`echo "$2" | sed -e "s/\([0-9A-Fa-zA-Z]*\)\/\([0-9]*\)/\1/g"`
+  CNUM=`echo "$2" | sed -e "s/\([0-9A-F]*\)\/\([0-9]*\)/\2/g"`
+  if [ "$CNUM" = "" -o "$CNUM" = "$2" ]; then
+    CNUM=0
+    CNUM_MAX=100000000
+  else
+    CNUM_MAX=$CNUM
+  fi
+
+  sqlplus -s /NOLOG << ! 
+    connect $DBUSER
+
+#    set pagesize 0
+#    set tab      off
+#    set linesize 140
+#    set echo off 
+#    repfooter off;
+#    set timing off veri off space 1 flush on pause off termout on numwidth 10;
+
+    set heading on
+    set echo on
+    set feedback on
+
+    select * from v\$sql_shared_cursor 
+    where sql_id='$SQLID'
+      and child_number>=$CNUM and child_number<=$CNUM_MAX
+    order by child_number;
+
+!
+  exit 0
+fi
+
+
+if [ "$1" = "sqlid_to_hash" ]; then
+
+  if [ "$2" = "" ]; then
+    usage "Sql_id parameter is missing"
+  fi
+
+  echo
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|ADDRESS|selected"
+    connect $DBUSER
+
+    set pagesize 0
+    set tab      off
+    set linesize 140
+    set echo off 
+    repfooter off;
+    set timing off veri off space 1 flush on pause off termout on numwidth 10;
+    
+    select 'Hash value is: ' || hash_value from v\$sql where sql_id = '$2';
+!
+  exit 0
+fi
+
+if [ "$1" = "last_sql_hash" ]; then
+
+  if [ "$2" = "" ]; then
+    SID=0
+  else
+    SID=$2
+  fi
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|ADDRESS|selected"
+    connect $DBUSER
+      set heading off
+      set feedback off
+      select prev_hash_value || 
+             decode(prev_child_number, 0, '', '/' || prev_child_number)
+      from v\$session 
+      where type = 'USER' 
+        and username != 'SYS'
+        and $SID = 0 or sid = $SID;
+!
+  exit 0
+fi
+
+
+if [ "$1" = "cur_mem" ]; then
+
+  COLNAME="0"
+
+  setup_hash_value hash_value sql_id $2 $3
+  shift $SHIFT_PARAM
+
+  create_format_functions
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|ADDRESS|selected" 
+    connect $DBUSER
+
+    set pagesize 600
+    set tab      off
+    set linesize 140
+    set echo off 
+    set long     4000
+
+    column inst_id heading id format 9
+    column lock_mode heading lm format a2
+    column pin_mode  heading pm format a2
+    column sql_text format a53 word_wrap
+    column shr      format a5
+    column per      format a5
+    column run      format a5
+
+
+    select /* ora cur_mem */ 
+           $INST_ID sql_text, 
+           lock_mode, pin_mode, 
+           $FORMAT_SIZE(sharable_mem)      shr, 
+	   $FORMAT_SIZE(persistent_mem)    per, 
+           $FORMAT_SIZE(runtime_mem)       run
+    from (
+      select 
+        inst_id,
+        kglnaobj       sql_text,
+        decode(kglhdlmd, 0, '0', 1, 'N', 2, 'S', 3, 'X', '?') lock_mode,
+        decode(kglhdpmd, 0, '0', 1, 'N', 2, 'S', 3, 'X', '?') pin_mode,
+        kglobhs0+kglobhs1+kglobhs2+kglobhs3+kglobhs4+kglobhs5+kglobhs6+kglobt16
+                       sharable_mem,
+        kglobt08+kglobt11 persistent_mem,
+        kglobt10       runtime_mem,
+        kglnahsh       hash_value,
+        kglobt03       sql_id,
+        kglobt09       child_number,
+        kglobt17       parsing_user_id
+      from x\$kglcursor_child)
+    where ($HVAL = 0 or $COLNAME = $HVAL)
+      and PARSING_USER_ID != $EXCLUDE
+    order by $INST_ID sharable_mem desc;
+!
+
+
+exit 0
+fi
+
+
+if [ "$1" = "shared_mem" ]; then
+#
+# Need to set 10235 to level 4 for this to work
+#
+# alter session set events '10235 trace name context forever, level 4';
+#
+
+  COLNAME="0"
+
+  setup_hash_value hash_value sql_id $2 $3
+  shift $SHIFT_PARAM
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|ADDRESS|selected" 
+    connect $DBUSER
+
+    set pagesize 600
+    set tab      off
+    set linesize 140
+    set echo off 
+    set long     4000
+
+    column sqltext heading sqltext		format a40
+    column comm    heading comment		format a16
+    column cnt     heading cnt		format 9999
+    column avgsize heading avg		format 9999
+    column sumsize heading sum		format 9999999
+    
+    break on sqltext skip page
+    compute sum of sumsize on sqltext
+    
+    select sql_text			      sqltext, 
+           chunk_com		              comm,
+           count(*)			      cnt,
+           avg(chunk_size)		      avgsize,
+           sum(chunk_size)		      sumsize
+    from v\$sql_shared_memory
+    where ($HVAL = '0' or $COLNAME = $HVAL)
+    group by sql_text, chunk_com
+    order by 1, 5 desc;
+
+!
+
+exit 0
+fi
+
+if [ "$1" = "runtime_mem" ]; then
+#
+# Need to set 10277 to level 10 for for this to work
+#
+# alter session set event '10277 trace name context forever, level 10';
+#
+
+  COLNAME="0"
+
+  setup_hash_value hash_value sql_id $2 $3
+  shift $SHIFT_PARAM
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|ADDRESS|selected" 
+    connect $DBUSER
+
+    set pagesize 600
+    set tab      off
+    set linesize 140
+    set echo off 
+    set long     4000
+
+    column sqltext heading sqltext format a38
+    column type    heading comment format a24
+    column cnt     heading count   format 9999 
+    column sumsize heading size    format 9999999
+    
+    break on sqltext skip page
+    compute sum of sumsize on sqltext
+    
+    select sql_text			      sqltext, 
+           kksaicmt			      type, 
+           count(*)			      cnt, 
+           sum(kksaisiz)		      sumsize
+    from v\$sql v, x\$kksai x
+    where v.address = x.kksaipar
+      and ($HVAL = 0 or $COLNAME = $HVAL)
+      and v.PARSING_USER_ID != $EXCLUDE
+    group by sql_text, kksaicmt
+    order by 1, 4 desc;
+    
+!
+
+exit 0
+fi
+
+
+if [ "$1" = "ash" ]; then
+
+  if [ "$2" = "" ]; then
+    usage "<minutes_from_now> parameter is missing"
+  fi
+  START_TIME=$2
+
+  shift 2
+
+  FNAME="/tmp/ashrpt$$.txt"
+  REM=1
+  DURATION=""
+  while [ "$1" != "" ]; do
+
+    if [ "$1" = "-f" ]; then
+      FNAME=$2
+      REM=0
+      shift 2
+      continue;
+    fi
+    
+    DURATION="$1"
+    shift
+  done
+
+  sqlplus -s /NOLOG << ! >/dev/null 2>&1
+    connect $DBUSER
+
+    set pagesize 600
+    set tab      off
+    set linesize 140
+    set echo off 
+    set long     4000
+
+    define report_type = 'text';
+    define begin_time  = '-$START_TIME';
+    define duration    = '$DURATION';
+    define report_name = '$FNAME';
+    @?/rdbms/admin/ashrpt
+!
+
+  echo
+  echo "                 ASH Report Output"
+  echo "                 ================="
+  echo
+  cat $FNAME
+  if [ $REM -eq 1 ]; then
+    rm -f $FNAME
+  fi
+
+exit 0
+fi
+
+
+if [ "$1" = "ash_wait" ]; then
+
+  if [ "$2" = "" ]; then
+    usage "<minutes_from_now> parameter is missing"
+  fi
+  START_TIME=$2
+
+  shift 2
+
+  FNAME="wait.graph"
+  DURATION=$START_TIME
+  while [ "$1" != "" ]; do
+
+    if [ "$1" = "-f" ]; then
+      FNAME=$2
+      shift 2
+      continue;
+    fi
+    
+    DURATION="$1"
+    shift
+  done
+
+  FMT='MON DD HH24:MI:SS'
+
+  sqlplus -s /NOLOG << ! > $FNAME 2>/dev/null
+
+   variable begin_date VARCHAR2(100)
+   variable end_date VARCHAR2(100)
+
+   connect $DBUSER
+
+   set serveroutput on feedback off echo off verify off;
+
+   begin
+     select to_char(sysdate - ((1/24/60) * $START_TIME), '$FMT'),
+            to_char(sysdate - ((1/24/60) * ($START_TIME - $DURATION)), '$FMT')
+            into :begin_date, :end_date
+     from dual;
+   end;
+   /
+
+   DECLARE
+       event NUMBER;
+       slottime NUMBER;
+       waitonevent NUMBER;
+       event_name VARCHAR2(64);
+    
+       -- Get top 10 events for query duration based  on count of event samples
+       -- mxgraph cannot display only 1 point per line. Eliminate 1 point lines.
+       cursor top_10_events
+       is
+            select event#, event
+            from  (
+                    select
+                            ash.event#,
+                            ash.event,
+                            count(*) as total_wait_count
+                    from  v\$active_session_history  ash
+                    where sample_time between to_date( :begin_date, '$FMT' )
+                                      and to_date( :end_date, '$FMT' )   and
+                          session_state = 'WAITING'
+                    group by ash.event#, ash.event  order by total_wait_count desc )
+            where  rownum < 10;
+    
+       -- Get graph co-ordinates (time,wait_counts) for each of the top 10 events
+       cursor sesshist (cevent NUMBER)
+       is
+       select
+              min_slot,
+              evt_cnt
+        from (
+            select
+                (slot_id - min(slot_id) over ()) * slot_time as min_slot,
+                event#,
+                trunc((event_counts_per_slot/slot_time),1) as evt_cnt
+            from (
+                select
+                    trunc( (cast(ash.sample_time as date) -
+                                 to_date('00:00:00 01/01/1970',
+                                     'HH24:MI:SS MM/DD/YYYY')) * 86400 / (v.slot_time) ) as slot_id,
+                    event#,
+                    count(*) as event_counts_per_slot,
+                    v.slot_time as slot_time
+                from v\$active_session_history  ash,
+                ( select
+                    (case when trunc(duration/200) > 5 then trunc(duration/200)
+                                                        else 5 end) as slot_time
+                  from
+                    ( select ((to_date(:end_date, '$FMT') -
+                               to_date(:begin_date, '$FMT'))*86400) as duration
+                      from  dual)) v
+                where   sample_time between to_date( :begin_date, '$FMT' ) and
+                        to_date( :end_date, '$FMT' ) and
+                        session_state = 'WAITING'
+                group by trunc( (cast(ash.sample_time as date) -
+                         to_date('00:00:00 01/01/1970', 'HH24:MI:SS MM/DD/YYYY')) * 86400 /
+                                  (v.slot_time) ) ,
+                event#))
+        where event# =  cevent;
+    
+    
+      BEGIN
+        dbms_output.enable(10000);
+        dbms_output.put_line('TitleText: Top Wait Events - Count'||chr(10)||'XUnitText: Time (s)'||chr(10)||'YUnitText: Num of Slaves');
+        dbms_output.put_line('BarGraph: True'||chr(10)||'NoLines: True'||chr(10)||'PixelMarkers: True'||chr(10)||'BarWidth: 2');
+        OPEN top_10_events;
+        LOOP
+         FETCH top_10_events into event,event_name;
+         EXIT WHEN top_10_events%NOTFOUND;
+         dbms_output.put_line(chr(10)||'"'||event_name||'"');
+           OPEN sesshist (event);
+           LOOP
+             FETCH sesshist into slottime,waitonevent;
+             EXIT WHEN sesshist%NOTFOUND;
+             dbms_output.put_line(slottime||' '||waitonevent);
+           END LOOP;
+           CLOSE sesshist;
+        END LOOP;
+
+        CLOSE top_10_events;
+    
+      END;
+      /
+
+!
+
+  mxgraph $FNAME 
+
+exit 0
+fi
+
+
+#
+# all_mem: all the memory for a given hash value
+#
+if [ "$1" = "all_mem" ]; then
+#    $ORA_PROG plan $temp_hash_value
+    $ORA_PROG $ARGS cur_mem $2 $3
+    $ORA_PROG $ARGS shared_mem $2 $3
+    $ORA_PROG $ARGS runtime_mem $2 $3
+exit 0
+fi
+
+
+if [ "$1" = "idxdesc" ]; then
+
+  if [ "$2" = "" ]; then
+       usage "username is missing"
+  fi
+
+  if [ "$3" != "" ]; then
+    EXTRA_PRED="and ind.table_name = upper('$3')"
+  else
+    EXTRA_PRED=""
+  fi
+    sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+    set pagesize 300
+    set linesize 180
+    set feedback off
+
+    col uniq    format a1 heading 'Uniqueness'  justify c trunc
+    col indname format a31 heading 'Index Name'  justify c trunc
+    col colname format a25 heading 'Column Name' justify c trunc
+    col type form A6 trunc
+
+    break -
+      on table_name - 
+      on indname -
+      on uniq -
+      on type -
+
+  select col.table_name, decode(ind.uniqueness,'UNIQUE','Y','N') uniq,
+       decode(ind.index_type,'NORMAL','',ind.index_type) type,
+       col.index_name  indname,
+       col.column_name                 colname
+  from   all_ind_columns  col,
+         all_indexes      ind
+  where  col.table_owner = ind.table_owner
+    and  col.index_name = ind.index_name
+    and  ind.table_owner = upper('$2') ${EXTRA_PRED}
+  order by col.table_name, col.index_name, col.column_position ;
+
+!
+  exit 0
+fi
+
+if [ "$1" = "segsize" ]; then
+
+  if [ "$2" = "" ]; then
+       usage "username is missing"
+  fi
+
+  if [ "$3" != "" ]; then
+    EXTRA_PRED="and seg.segment_name = upper('$3')"
+  else
+    EXTRA_PRED=""
+  fi
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+    
+  connect $DBUSER
+  set linesize 140
+  set pagesize 300
+  column segment_name    format a40;
+  column owner           format a10;
+  column tablespace_name format a30;
+  column Size_MB      format 999999999;
+  break  on segment_name skip 1
+
+  -- compute sum label Total of Size_MB on segment_name;
+
+  select tablespace_name, segment_name||
+        decode(segment_type,'TABLE','[Tab]','INDEX','[Idx]', 'ROLLBACK', '[Rbs]') segment_name
+      , sum(bytes)/(1024*1024) Size_MB
+  from dba_segments seg
+  where seg.owner = upper ('$2') ${EXTRA_PRED}
+  group by tablespace_name, segment_name||
+        decode(segment_type,'TABLE','[Tab]','INDEX','[Idx]', 'ROLLBACK', '[Rbs]')
+  order by Size_Mb ;
+
+!
+exit 0
+fi
+
+if [ "$1" = "tempu" ]; then
+  if [ "$2" != "" ]; then
+    EXTRA_PRED="AND   s.username=upper('$2')"
+  else
+    EXTRA_PRED=""
+  fi
+
+  if [ "$ORA_USE_HASH" = "" ]; then
+    COLNM=sql_id
+  else
+    COLNM=sqlhash
+  fi
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 100
+    set linesize 100
+    col sql_text format a90
+    col username format a15
+    col tablespace format a20
+
+    SELECT u.$COLNM, t.sql_text, s.username, u.tablespace, u.segtype,
+           u.contents, u.extents, u.blocks
+    FROM v\$session s, v\$sort_usage u, v\$sqlarea t
+    WHERE s.saddr=u.session_addr
+    AND   u.sqlhash=t.hash_value  ${EXTRA_PRED} ;
+
+!
+exit 0
+fi
+
+if [ "$1" = "sqlstats" ]; then
+
+    if [ "$2" = "" ]; then
+       usage "Cursor hash value is missing"
+    fi
+
+    if [ $VERSION_MAIN -ge 10 ]; then
+      DWRITES=", DIRECT_WRITES dw "
+      PLSQL="round(PLSQL_EXEC_TIME/1000000, 2) plsql,"
+    fi
+
+    setup_hash_value hash_value sql_id $2 $3
+    shift $SHIFT_PARAM
+
+    sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 100
+    set linesize 160
+
+    select executions exe,
+           round(CPU_TIME/1000000, 2) cpu, 
+           round(ELAPSED_TIME/1000000, 2) elaps, $PLSQL
+           BUFFER_GETS bgets, DISK_READS dr $DWRITES
+   from v\$sql
+   where $COLNAME = $HVAL ; 
+
+!
+exit 0
+fi
+
+if [ "$1" = "optstats" ]; then
+
+  if [ "$2" = "" ]; then
+       usage "username is missing"
+  fi
+
+  if [ "$3" != "" ]; then
+    EXTRA_PRED="and table_name = upper('$3')"
+  else
+    EXTRA_PRED=""
+  fi
+
+    sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+    connect $DBUSER
+
+    set pagesize 400
+    set linesize 120
+    col DISTRATIO format 9999.99
+    break on table_name  skip 1
+    col num_rows format 99999999999
+    col num_distinct format 99999999999
+
+    select * from (
+    select t.table_name, column_name, num_rows, num_distinct,
+           (num_distinct/num_rows)*100 DistRatio, row_number()
+    OVER( PARTITION BY  t.table_name
+          order by (num_distinct/num_rows)*100  desc) Top100
+    from dba_tab_cols c, dba_tables t
+    where t.table_name=c.table_name
+    and t.num_rows > 0
+    and t.owner=upper('$2')
+    and c.table_name in (select distinct table_name from dba_tables
+        where owner=upper('$2') ${EXTRA_PRED} )
+    ) where Top100 <= 100;
+    -- assuming we get most distinct columns within first 100
+!
+exit 0
+fi
+
+
+if [ "$1" = "userVs" ]; then
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+  connect $DBUSER
+  set pagesize 300
+  select view_name
+  from all_views
+  where owner='SYS' and view_name like 'ALL%'
+  order by view_name ;
+
+!
+exit 0
+fi
+
+if [ "$1" = "fixedVs" ]; then
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+  connect $DBUSER
+  set pagesize 300
+  select name
+  from v\$fixed_table
+  where name like 'V\$%'
+  order by name;
+!
+exit 0
+fi
+
+
+if [ "$1" = "fixedXs" ]; then
+
+  sqlplus -s /NOLOG << ! | egrep -v "no rows selected|Session altered|Connected|rows selected"
+
+  connect $DBUSER
+
+  set pagesize 300
+  select name
+  from v\$fixed_table
+  where name like 'X\$%' order by name;
+!
+exit 0
+fi
+
+#
+# Dump the stack
+#
+if [ "$1" = "stack" ]; then
+
+  if [ "$2" = "" ]; then
+    usage "OS pid must be specified (ora stack <os_pid>)"
+  fi
+
+  OSPID=$2
+
+  sqlplus -s /NOLOG << ! | egrep "##" | sed -e 's/^##\(.*\)$/\1/g' > $ORA_TMP/ora
+
+    connect $DBUSER
+
+    set pagesize 600
+    set linesize 300
+    set tab      off
+    set linesize 140
+    set echo off 
+    set long     4000
+
+    oradebug setospid $OSPID
+    rem oradebug setvar pga ksedsl 1
+    rem oradebug call ksedst 0
+    oradebug dump callstack 1
+
+    column value format A200
+    select unique '##'||ksppstvl value
+    from x\$ksppi x, x\$ksppcv y 
+    where (x.indx = y.indx) 
+      and ksppinm in ('background_dump_dest','user_dump_dest','core_dump_dest');
+!
+
+  # no yet found
+  rm -f $ORA_TMP/ora_file_res
+
+  cat $ORA_TMP/ora | while read DIR; do
+
+    FILE=`ls -C1 $DIR/*_${OSPID}.trc 2>/dev/null`
+
+    if [ "$FILE" != "" ]; then
+      egrep -n '\---- Call Stack Trace -----|----- End of Call Stack Trace' $FILE > $ORA_TMP/ora_file
+
+      NB_LINES=`tail -1 $ORA_TMP/ora_file`
+      if [ "$NB_LINES" != "" ]; then
+        FOUND=1
+        echo "$FILE" > $ORA_TMP/ora_file_res
+        break;
+      fi
+    fi
+  done
+
+  FILE=`cat $ORA_TMP/ora_file_res`
+
+  #
+  # Dump stack
+  #
+  if [ "$FILE" != "" ]; then
+    LINE_START=`tail -2 $ORA_TMP/ora_file | head -1 | sed -e 's/\([0-9]*\):.*/\1/g'`
+    LINE_END=`tail -1 $ORA_TMP/ora_file | sed -e 's/\([0-9]*\):.*/\1/g'`
+
+    let LINE_COUNT="LINE_END-LINE_START+1"
+
+    echo
+    echo
+    head -${LINE_END} $FILE | tail -${LINE_COUNT}
+    echo
+    
+  else
+    echo
+    echo "Trace file not found, probably os pid does not exists"
+    echo
+  fi
+exit 0
+fi
+
+
+#
+# Do pstack on all process
+#
+if [ "$1" = "pstack" ]; then
+
+  HOST_NAME=`uname -n`
+
+  PID=$2
+  shift 2
+
+  if [ "$1" != "" ]; then
+    DIR=$1
+  else
+    DIR=$T_TRC
+  fi
+
+  if [ ! -d $DIR ]; then
+    usage "Directory $DIR does not exists"
+  fi
+
+  if [ "$ORACLE_SID" = "" ]; then
+    usage "ORACLE_SID must be defined"
+  fi
+
+  if [ "$PID" = "all" ]; then
+    ps -edf | egrep "ora_[a-z0-9]*_${ORACLE_SID}|oracle${ORACLE_SID}" | grep -v egrep | while read a; do
+      set $a
+
+      PID=$2
+
+      TARGET_FILE="$DIR/pstack_${PID}_${HOST_NAME}.trc"
+
+      echo >> $TARGET_FILE
+      CURDATE=`date +"%T (%D)"`
+      echo "######################## $CURDATE ########################" >> $TARGET_FILE
+
+      pstack $PID >> $TARGET_FILE 2> /dev/null
+      echo >> $TARGET_FILE
+
+    done
+
+    CURDATE=`date +"%T (%D)"`
+    echo "pstack_all completed for all process at $CURDATE"
+
+  else
+
+    pstack $PID
+    echo
+  fi
+
+  exit 0
+fi
+
+
+#
+# Get system state dump and place result in specified directory
+#
+if [ "$1" = "system_state" ]; then
+
+  shift
+  if [ "$1" != "" ]; then
+    DIR=$1
+  else
+    DIR=$T_TRC
+  fi
+
+  if [ ! -d $DIR ]; then
+    usage "Directory $DIR does not exists"
+  fi
+
+  CURDATE=`date +"%T_%m|%d"`
+  HOST_NAME=`uname -n`
+
+  sqlplus -s /NOLOG << ! | egrep "##" | sed -e 's/^##\(.*\)$/\1/g' > $ORA_TMP/ora$$
+
+    connect $DBUSER
+
+    set pagesize 600
+    set linesize 300
+    set tab      off
+    set linesize 140
+    set echo off 
+    set long     4000
+    
+    alter session set events 'immediate trace name systemstate level 266';
+
+    select '##'||VALUE || '/${ORACLE_SID}_ora_'|| spid ||'.trc' file_name
+    from v\$parameter, v\$process
+    where name = 'user_dump_dest' and pid=userenv('pid');
+!
+
+    FILE=`cat $ORA_TMP/ora$$`
+    rm -f $ORA_TMP/ora$$
+    mv $FILE "$DIR/sysstate_${CURDATE}_${HOST_NAME}.trc"
+
+    echo "System state file 'sysstate_$CURDATE.trc' successfully produced"
+  exit 0
+fi
+
+
+if [ "$1" = "px_processes" ]; then 
+  #
+  # This query was donated by Patrick
+  #
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|ADDRESS|selected" 
+
+    connect $DBUSER
+    set linesize 200
+    col "Wait Event" format a30
+    col SPID format A10
+
+    select s.sql_id, 
+           px.SID "SID", 
+           p.PID, 
+           p.SPID "SPID",
+           px.INST_ID "Inst",
+           px.SERVER_GROUP "Group", 
+           px.SERVER_SET "Set",
+           px.DEGREE "Degree", 
+           px.REQ_DEGREE "Req Degree",
+           w.event "Wait Event", s.program
+    from GV\$SESSION s, GV\$PX_SESSION px, GV\$PROCESS p, GV\$SESSION_WAIT w
+    where s.sid (+) = px.sid and 
+          s.inst_id (+) = px.inst_id and
+          s.sid = w.sid (+) and 
+          s.inst_id = w.inst_id (+) and
+          s.paddr = p.addr (+) and 
+          s.inst_id = p.inst_id (+)
+    ORDER BY decode(px.QCINST_ID,  NULL, px.INST_ID,  px.QCINST_ID),
+             px.QCSID, 
+             decode(px.SERVER_GROUP, NULL, 0, px.SERVER_GROUP), 
+             px.SERVER_SET, 
+             px.INST_ID;
+!
+
+  exit 0
+fi
+
+
+if [ "$1" = "cursor_summary" ] || [ "$1" = "pinned_cursors" ]; then 
+  #
+  # This query summarizes information about pinned/locked/unpinned cursors
+  # and their sizes
+  #
+
+  create_format_functions
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|ADDRESS|selected" 
+
+    connect $DBUSER
+
+    set echo off
+    set lines 100
+    set pages 200
+    
+    column curtyp           heading curtyp      format a6 truncate
+    column lmd              heading lmd         format a2
+    column pmd              heading pmd         format a2
+    column pc               heading pc          format a3
+    column tot              heading total       format a5
+    column cnt              heading count       format a5
+    
+    column sum_heap0        heading sum0        format a5
+    column sum_heap4        heading sum4        format a5
+    column sum_heap6        heading sum6        format a5
+
+    column cnt_heap0        heading cnt0        format a5
+    column cnt_heap4        heading cnt4        format a5
+    column cnt_heap6        heading cnt6        format a5
+    
+    column avg_heap0        heading avg0        format a5
+    column avg_heap4        heading avg4        format a5
+    column avg_heap6        heading avg6        format a5
+    
+    column max_heap0        heading max0        format a5
+    column max_heap4        heading max4        format a5
+    column max_heap6        heading max6        format a5
+    
+    select /* ora pinned_cursors */
+           case 
+             when pc = 'PAR' and lmd = '0' and pmd = '0' then
+               'Parent Freeable'
+             when pc = 'PAR' and lmd = 'N' and pmd = '0' then
+               'Parent Inuse'
+             when pc = 'CHI' and lmd = '0' and pmd = '0' then
+               'Child Freeable'
+             when pc = 'CHI' and lmd = '0' and pmd = 'S' then
+               'Pseudo Cursor '
+             when pc = 'CHI' and lmd = 'N' and pmd = '0' then
+               'Child Cached'
+             when pc = 'CHI' and lmd = 'N' and pmd = 'S' then
+               'Child Executing'
+             else
+               'Not Sure'
+           end cursor_type,
+           pc, lmd, pmd, 
+           $FORMAT_NUMBER(count(*))           cnt, 
+           $FORMAT_SIZE(sum(tot))      tot,
+           $FORMAT_SIZE(count(decode(KGLOBHS0, 0, NULL, KGLOBHS0))) cnt_heap0, 
+           $FORMAT_SIZE(count(decode(KGLOBHS6, 0, NULL, KGLOBHS6))) cnt_heap6,
+           $FORMAT_SIZE(sum(KGLOBHS0)) sum_heap0, 
+--           $FORMAT_SIZE(sum(KGLOBHS4)) sum_heap4, 
+           $FORMAT_SIZE(sum(KGLOBHS6)) sum_heap6,
+           $FORMAT_SIZE(avg(KGLOBHS0)) avg_heap0, 
+--         $FORMAT_SIZE(avg(KGLOBHS4)) avg_heap4,
+           $FORMAT_SIZE(avg(KGLOBHS6)) avg_heap6,
+           $FORMAT_SIZE(max(KGLOBHS0)) max_heap0, 
+--           $FORMAT_SIZE(max(KGLOBHS4)) max_heap4, 
+           $FORMAT_SIZE(max(KGLOBHS6)) max_heap6
+    from (
+            select KGLOBHS0, 
+                   KGLOBHS4, 
+                   KGLOBHS6,
+                   kglobhs0+kglobhs4+kglobhs6 tot,
+                   decode(kglhdadr, kglhdpar, 'PAR', 'CHI') pc,
+                   decode(kglhdlmd, 0, '0', 1, 'N', 2, 'S', 3, 'X', '?') lmd,
+                   decode(kglhdpmd, 0, '0', 1, 'N', 2, 'S', 3, 'X', '?') pmd,
+                   case 
+                      when KGLOBT09 = 65535 then
+                            '0 PAR' 
+                      when KGLHDLMD = 1 and KGLHDPMD > 0 then
+                            '1 PN CHI'
+                      when KGLHDLMD = 1 then
+                            '2 LK CHI'
+                      else 
+                            '3 CHI'
+                   end cursor_type
+            from x\$kglcursor)
+    group by pc, lmd, pmd
+    order by pc desc, lmd, pmd
+    ;
+
+!
+
+##  $ORA_PROG $ARGS -pred "pin_mode = 'S'" cur_mem all
+
+  exit 0
+fi
+
+
+if [ "$1" = "rowcache" ]; then 
+  #
+  # This query summarizes information about row cache objects
+  #
+
+  create_format_functions
+
+  sqlplus -s /NOLOG << ! | egrep -v "Connected|ADDRESS|selected" 
+
+    connect $DBUSER
+
+    set echo off
+    set lines 80
+    set pages 200
+    
+    column cache_name format a30 trunc
+    column subcache_name format a30 trunc
+
+    select $INST_ID parameter, count 
+    from $V\$rowcache 
+    order by 1,2;
+
+    select $INST_ID cache_name, lock_mode, lock_request, count(*) 
+    from $V\$rowcache_parent 
+    group by $INST_ID cache_name, lock_mode, lock_request
+    order by $INST_ID cache_name, lock_mode, lock_request;
+    
+    select $INST_ID cache#, subcache_name, existent, count(*) 
+    from $V\$rowcache_subordinate rs
+    group by $INST_ID cache#, subcache_name, existent 
+    order by $INST_ID cache#, subcache_name, existent;
+!
+
+  exit 0
+fi
+
+
+if [ "$1" = "gplan" ]; then
+
+  if [ "$2" = "" ]; then
+    usage "Cursor hash value is missing"
+  fi
+
+  setup_hash_value hash_value sql_id $2 $3
+  shift $SHIFT_PARAM
+
+  sqlplus -s /NOLOG << ! | grep '###' | sed -e 's/^###\(.*\)$/\1/g' > $ORA_TMP/oraout$$
+
+    connect $DBUSER
+
+    set pagesize 6000
+    set linesize 100
+    set tab off
+    col address format A15
+    col sql_hash format A15
+    col exec format 9999
+    col sql_text format A75 WORD_WRAP
+
+create or replace procedure todot(d_rwo in number)
+is
+  lvalue   varchar2(100);
+  distr    varchar2(32);
+  dfoname  varchar(32);
+  rv       varchar2(4000);
+  id       number;
+  pid      number;
+  dfonumber  number;
+  cdfo     number;
+  cpxid    number;
+  pxid     number;
+  mpxid    number;
+
+  cursor nodes is 
+    select 'n_' || id || 
+           '[label="' || operation ||  decode(object_name,'','','('||object_name||')') || '"];' 
+    from v\$sql_plan 
+    where id > 0 and $COLNAME = $HVAL and child_number = $CNUM;
+
+  cursor edges is 
+    select parent_id, id, distribution
+    from v\$sql_plan 
+    where id > 0 and $COLNAME = $HVAL and child_number = $CNUM;
+
+  cursor rwo is 
+    select id, regexp_replace(regexp_replace(regexp_replace(projection,',[[:digit:]]+',''),'"',''),',','|') 
+    from v\$sql_plan 
+    where id > 0 and $COLNAME = $HVAL and child_number = $CNUM;
+
+  cursor dfos is 
+    select id, to_number(substr(object_node, 3,1)) pxid, to_number(substr(object_node, 4)) dfo 
+    from v\$sql_plan 
+    where id > 0 and $COLNAME = $HVAL and child_number = $CNUM and
+          object_node is not null 
+    order by pxid, dfo;
+
+begin
+  dbms_output.put_line('### digraph G {');
+  dbms_output.put_line('### graph [fontsize=12 labeljust=l];');
+  dbms_output.put_line('### edge [arrowhead=none arrowtail=normal fontsize=8];');
+  dbms_output.put_line('### node [shape=ellipse fontsize=8];');
+
+  
+  SELECT max(to_number(substr(object_node, 3,1))) INTO mpxid FROM plan_table;
+
+  cdfo := -1;
+  cpxid := -1;
+  open dfos;
+  loop 
+    fetch dfos into id, pxid, dfonumber;
+    EXIT WHEN dfos%NOTFOUND;
+
+    if ( (cdfo != dfonumber) or (pxid != cpxid) )then
+      if (cdfo != -1) then
+        dbms_output.put_line('### }');
+      end if;
+      if (mpxid > 1) then
+        dfoname := 'DFO ' || (1000 * pxid + dfonumber);
+      else 
+        dfoname := 'DFO ' || dfonumber;
+      end if;
+      dbms_output.put_line('### subgraph "cluster_dfo_' || (pxid*1000 + dfonumber) || '" { label = "' || dfoname || '";');
+      cdfo := dfonumber;
+      cpxid := pxid;
+    end if;
+
+    dbms_output.put_line('### n_' || id || ';');    
+
+  end loop;
+  close dfos;
+
+  if (cdfo != -1) then
+    dbms_output.put_line('### }');
+  end if;
+  
+  open nodes;
+  loop 
+    fetch nodes into lvalue;
+    EXIT WHEN nodes%NOTFOUND;
+    dbms_output.put_line('### '|| lvalue);
+  end loop;
+  close nodes;
+
+  if (d_rwo = 1) then
+    open rwo;
+    loop 
+      fetch rwo into id, rv;
+      EXIT WHEN rwo%NOTFOUND;
+      dbms_output.put_line('### rwo_' || id || '[label="' || rv || '"];');
+      dbms_output.put_line('### n_'|| id || '->' || 'rwo_' || id || ';');
+    end loop;
+    close rwo;
+  end if;
+
+  open edges;
+  loop 
+    fetch edges into pid, id, distr;
+    EXIT WHEN edges%NOTFOUND;
+    if (pid != 0) then
+      if (distr is null) then
+        dbms_output.put_line('### n_'|| pid || '->' || 'n_' || id || ';');
+      else
+        dbms_output.put_line('### n_'|| pid || '->' || 'n_' || id || '[label="'|| distr || '"];');
+      end if;
+    end if;
+  end loop;
+  close edges;
+
+
+  dbms_output.put_line('### }');
+
+end todot;
+/
+show errors;
+
+    set serveroutput on
+    call todot(0);
+!
+    dotty  $ORA_TMP/oraout$$
+exit 0
+fi
+
+
+if [ "$1" = "webplan" ]; then
+
+  if [ "$2" = "" ]; then
+    usage "Cursor hash value is missing"
+  fi
+
+  setup_hash_value hash_value sql_id $2 
+  shift $SHIFT_PARAM
+
+  if [ "$2" = "" ]; then
+    DECORATE=0
+  else
+    DECORATE=$2
+  fi
+
+  sqlplus -s /NOLOG <<EOF  | grep '###' | sed -e 's/^###\(.*\)###$/\1/g' > $ORA_TMP/oragdlpre-$$
+
+    set echo off heading off feedback off
+    connect $DBUSER
+
+    select distinct '###' || hash_value || '###' from v\$sql where $COLNAME=$HVAL;
+    exit;
+
+EOF
+    GDLHASH=`cat $ORA_TMP/oragdlpre-$$`
+    rm -f $ORA_TMP/oragdlpre-$$
+   
+  if [ "$GDLHASH" = "" ]; then
+    print "Cursor hash value is absent in cursor cache"
+    exit 1;
+  fi
+
+
+# Quick check to save recompiling procedures.
+
+sqlplus -s /NOLOG <<EOF | grep 'ORA-'  > /dev/null  2>&1
+    connect $DBUSER
+
+    call ora_togdl(0,0,0) ;
+EOF
+
+## procedure does not exist,so compile it first time
+ if [ $? = 0 ]; then
+
+  sqlplus -s /NOLOG << !  > $ORA_TMP/oragdlpre$$ 2>&1
+
+    connect $DBUSER
+
+    set pagesize 6000
+    set linesize 4400
+    set tab off
+    col address format A15
+    col sql_hash format A15
+    col exec format 9999
+    col sql_text format A75 WORD_WRAP
+
+create or replace procedure ora_print_edge(pid in number, id in number, distribution in varchar2)
+is
+begin
+  dbms_output.put_line('### edge: {');
+  dbms_output.put_line('###   source:"n_' || pid || '"');
+  dbms_output.put_line('###   target:"n_' || id  || '"');
+  if (distribution is not null) then
+    dbms_output.put_line('###   label:"' || distribution || '"');
+  end if;
+  dbms_output.put_line('###   color:red');
+  dbms_output.put_line('### }');
+end ora_print_edge;
+/
+show errors;
+
+create or replace procedure ora_print_node(decorate in number, pxid in number, dfo in number, id in number, 
+                                       position in number, label in varchar2,
+                                       cost in number, cpu_cost in number, io_cost in number, access_pred in varchar2,
+                                       card in number, bytes in number, temp_space in number, filter_pred in varchar2,
+                                       projection in varchar2)
+is
+  newline boolean;
+  color1 number;
+  color2 number;
+begin
+  newline := FALSE;
+  dbms_output.put_line('### node: {');
+  dbms_output.put_line('###   title:"n_' || id || '"');
+  if (decorate <> 0 ) then
+    dbms_output.put('###   label:"\fu\fb ' || id || ' : '  || label || '\fn\n');
+
+    if (cost is not null) then
+      dbms_output.put('cost:\f02' || cost || '\f31');
+      newline := TRUE;
+    end if;
+
+    if (cpu_cost is not null) then
+      dbms_output.put(',cpu_cost:\f02' || cpu_cost || '\f31');
+      newline := TRUE;
+    end if;
+
+    if (io_cost is not null) then
+      dbms_output.put(',io_cost:\f02' || io_cost || '\f31');
+      newline := TRUE;
+    end if;
+
+    if (card is not null) then
+     if (newline = TRUE) then
+      dbms_output.put('\n');
+     end if;
+     dbms_output.put('card:\f02' || card || '\f31');
+     newline := TRUE;
+   end if;
+
+   if (bytes is not null) then
+     dbms_output.put(',bytes:\f02' || bytes || '\f31');
+     newline := TRUE;
+   end if;
+
+   if (temp_space is not null) then
+     dbms_output.put(',temp_space:\f02' || temp_space || '\f31');
+     newline := TRUE;
+   end if;
+
+   if (access_pred is not null) then
+     if (newline = TRUE) then
+      dbms_output.put('\n');
+     end if;
+     dbms_output.put('access (' || access_pred || ')');
+     newline := TRUE;
+   end if;
+
+   if (filter_pred is not null) then
+     if (newline = TRUE) then
+      dbms_output.put('\n');
+     end if;
+     dbms_output.put('filter: (' || filter_pred || ')');
+     newline := TRUE;
+   end if;
+
+   if (decorate = 2) then
+     if (projection is not null) then
+       if (newline = TRUE) then
+        dbms_output.put('\n');
+       end if;
+       dbms_output.put('projection: ' || projection);
+       newline := TRUE;
+     end if;
+   end if;
+
+  dbms_output.put_line('"');
+  else
+    dbms_output.put_line('###   label:"' || label || '"');
+  end if;
+  dbms_output.put_line('###   horizontal_order:' || id );
+  dbms_output.put_line('###   shape:ellipse');
+
+  if (pxid is null) then
+   color1 := 0;
+   color2 := 0;
+  else
+    color1 := 13 + pxid;
+    color2 := 23 + pxid;
+  end if;
+
+  if (mod(dfo,2) = 0) then
+    dbms_output.put_line('###   color :' || color1);
+  else
+    dbms_output.put_line('###   color :' || color2);
+  end if;
+
+  dbms_output.put_line('### }');
+  dbms_output.put_line('###');
+end ora_print_node;
+/
+
+create or replace procedure ora_print_graph_prolog(dfonumber in number, pxid in number)
+is
+  dfoname  varchar(100);
+  color1   number;
+  color2   number;
+begin
+  if (pxid > 1) then
+    dfoname := 'PX:' || pxid || ':DFO ' || dfonumber;
+  else
+    dfoname := 'DFO ' || dfonumber;
+  end if;
+   
+  dbms_output.put_line('###graph: {');
+  dbms_output.put_line('###   title   :"' || dfoname || '"');
+  dbms_output.put_line('###   label   :"' || dfoname || '"');
+  dbms_output.put_line('###   status  :clustered');
+  dbms_output.put_line('###   shape  :triangle');
+
+  color1 := 13 + pxid;
+  color2 := 23 + pxid;
+
+  if (mod(dfonumber,2) = 0) then
+    dbms_output.put_line('###   color :' || color1);
+  else
+    dbms_output.put_line('###   color :' || color2);
+  end if;
+  dbms_output.put_line('###');
+end ora_print_graph_prolog;
+/
+
+create or replace procedure ora_print_graph_epilog
+is
+begin
+ dbms_output.put_line('### }');
+end ora_print_graph_epilog;
+/
+
+create or replace procedure ora_print_topgraph_properties(complexity in number)
+is
+begin
+  dbms_output.put_line('###graph: {');
+  dbms_output.put_line('###   display_edge_labels: yes');
+  dbms_output.put_line('###   fontname: "timR"');
+  dbms_output.put_line('###   edge.arrowstyle:none');
+  dbms_output.put_line('###   layoutalgorithm:dfs');
+
+  -- complicated parallel trees, need some finetuning.
+
+  if (complexity > 3) then 
+    dbms_output.put_line('###   equal_y_dist: yes');
+    dbms_output.put_line('###   layout_downfactor: 100');
+    dbms_output.put_line('###   layout_upfactor: 0');
+    dbms_output.put_line('###   layout_nearfactor: 10');
+    dbms_output.put_line('###   dirty_edge_labels: yes');
+    dbms_output.put_line('###   manhattan_edges: yes');
+  else 
+    dbms_output.put_line('###   splines:yes');
+    dbms_output.put_line('###   xspace: 10');
+    dbms_output.put_line('###   manhattan_edges: yes');
+  end if ;
+
+  dbms_output.put_line('###');
+end ora_print_topgraph_properties;
+/
+
+create or replace procedure ora_togdl (sql_hash in number, cnum in number, decorate in number)
+is
+  label    varchar2(100);
+  distr    varchar2(100);
+  id       number;
+  pid      number;
+  pxid     number;
+  position number;
+  cdfo     number;
+  cpxid    number;
+  dfonumber  number;
+  cost     number;
+  cpu_cost     number;
+  io_cost     number;
+  access_pred   varchar2(4000);
+  filter_pred    varchar2(4000);
+  projection    varchar2(4000);
+  card    number;
+  bytes    number;
+  temp_space    number;
+  complexity  number;
+
+  cursor edge is 
+    select parent_id, id, lower(distribution) || case other_tag 
+                                          when 'PARALLEL_TO_PARALLEL' then '  P->P  '
+                                          when 'PARALLEL_TO_SERIAL'   then '  P->S  '
+                                          when 'PARALLEL_FROM_SERIAL' then '  S->P  '
+                                          else '' end
+    from v\$sql_plan 
+    where  id >0 and
+     hash_value   =  sql_hash 
+     and  child_number = cnum;
+
+  cursor node is 
+    select id, 
+      to_number(substr(object_node, 3,1)) pxid, 
+      to_number(substr(object_node, 4)) dfo,
+      position position,
+      lower(operation) || ' ' || lower(options)  || nvl2(object_name, '(' || 
+                        nvl2(object_owner, object_owner || '.' ,'') ||  
+                     object_name  || 
+                     nvl2(object_alias, ' ' || 
+                     regexp_replace(object_alias, '(@.*)', '') , '') || ')', '')  label,
+      cost,
+      cpu_cost,
+      io_cost,
+      replace(access_predicates, '"',''),
+      cardinality,
+      bytes,
+      temp_space,
+      replace(filter_predicates, '"',''),
+      replace(projection, '"','')
+    from v\$sql_plan 
+    where hash_value   =  sql_hash 
+     and  child_number = cnum
+    order by pxid desc, dfo desc, id;
+
+begin
+  if (sql_hash = 0) then
+    return;
+  end if;
+
+  select max(nvl(to_number(substr(object_node, 4)), 0)) into complexity
+  from v\$sql_plan
+  where hash_value  = sql_hash 
+  and  child_number = cnum;
+  
+  ora_print_topgraph_properties(complexity);  
+
+  cdfo := -1;
+  cpxid := -1;
+
+  open node;
+  loop 
+    fetch node into id, pxid, dfonumber, position,label,cost,cpu_cost,io_cost, access_pred, card, bytes, temp_space, 
+                    filter_pred, projection;
+    EXIT WHEN node%NOTFOUND;
+    
+    if ( (cdfo != dfonumber) or (pxid != cpxid) ) then
+      if (cdfo != -1) then
+        ora_print_graph_epilog; 
+      end if;
+
+      ora_print_graph_prolog(dfonumber, pxid);
+
+      cdfo  := dfonumber;
+      cpxid := pxid;
+    end if;
+   
+    ora_print_node(decorate, pxid, dfonumber,id, position,label, cost, cpu_cost, io_cost, access_pred, card, bytes, 
+               temp_space, filter_pred, projection);
+
+  end loop;
+  close node;
+
+  if (cdfo != -1) then
+    ora_print_graph_epilog; 
+  end if;
+  
+  open edge;
+  loop 
+    fetch edge into pid, id, distr;
+    EXIT WHEN edge%NOTFOUND;
+
+    ora_print_edge(pid, id, distr);
+
+  end loop;
+  close edge;
+
+
+  ora_print_graph_epilog; 
+
+end ora_togdl;
+/
+show errors;
+
+!
+  rm -f $ORA_TMP/oragdlpre$$
+fi
+### All procedures compiled, now ready for graph generation.
+  sqlplus -s /NOLOG << ! | grep '###' | sed -e 's/^###\(.*\)$/\1/g' > $ORA_TMP/oragdl$$
+
+    connect $DBUSER
+
+    set pagesize 6000
+    set linesize 4400
+    set tab off
+
+
+    set serveroutput on
+    call ora_togdl($GDLHASH, $CNUM, $DECORATE);
+!
+
+# Convert gdl file to png, and show it on the browser
+
+$RENDER  -lm 0px -tm 0px -scale 100 -pngoutput $ORA_TMP/oraXpl$$.png -htmloutput $ORA_TMP/oraXpl$$.html $ORA_TMP/oragdl$$  > /dev/null 2>&1
+$BROWSER  $ORA_TMP/oraXpl$$.png
+## SVG/Javascript/clickable nodes  sometime later...
+#$RENDER -svgoutput $ORA_TMP/oraXpl$$.svg $ORA_TMP/oragdl$$
+#$BROWSER  $ORA_TMP/oraXpl$$.svg
+rm -f $ORA_TMP/oragdl$$
+rm -f $ORA_TMP/oraXpl$$.html
+exit 0
+fi
+
+if [ "$1" = "monitor_list" ]; then
+
+  sqlplus -s /NOLOG  << ! | egrep -v "no rows selected|Session altered|Connected|rows selected|successfully"
+
+  connect $DBUSER
+
+  set echo on
+  set linesize 180
+  set pages 600
+
+  col sql_text format A80 wrap
+  select m.sql_id, sql_exec_id, round(m.elapsed_time/1000000) "Elapsed(s)", 
+         round(m.CPU_TIME/1000000) "Cpu(s)", s.sql_text
+  from v\$sql_monitor m, v\$sql s
+  where m.SQL_ID = s.SQL_ID
+    and m.SQL_CHILD_ADDRESS = s.CHILD_ADDRESS
+    and m.PX_SERVER# is null
+  order by SQL_EXEC_START;
+!
+  exit 0
+fi
+
+
+if [ "$1" = "monitor" ]; then
+
+  shift 1
+
+  if [ "$1" = "active" ]; then
+    ARGS=", type=>'active'"
+    shift
+  else
+    ARGS=""
+  fi 
+
+  SQLID="'$1'"
+
+  #
+  # Check if sql_id
+  #
+  if [ ${#SQLID} -eq 15 ]; then
+    shift 1
+    ARGS="sql_id=>$SQLID $ARGS"
+  else
+    ARGS="$* $ARGS"
+  fi
+
+  sqlplus -s /NOLOG  << ! | egrep -v "no rows selected|Session altered|Connected|rows selected|successfully"
+
+  connect $DBUSER
+
+  set echo on
+  set linesize 300
+  set heading off
+  set pages 0
+  set long 2000000
+  set longchunksize 2000000
+
+  select dbms_sqltune.report_sql_monitor($ARGS) Monitor_report from dual;
+  set heading on
+  set pages 50000
+!
+  exit 0
+fi
+
+
+if [ "$1" = "monitor_old" ]; then
+
+  if [ "$2" = "ash_all" ]; then
+    shift
+
+    #
+    # Use all rows from ash for the execution of that statement. This way, with
+    # short running queries, we would get more ash samples
+    #
+    ASH_JOIN_COLUMN_OUTER="sql_id, sql_plan_hash_value"
+    ASH_JOIN_COLUMN_INNER="ma.sql_id, ma.sql_plan_hash_value"
+    
+  else
+    #
+    # Only use ash samples for the specified target
+    #
+    ASH_JOIN_COLUMN_OUTER="sql_id, session_id, sql_exec_start, sql_exec_id, 
+                           sql_plan_hash_value"
+    ASH_JOIN_COLUMN_INNER="ma.sql_id, ma.sid, ma.SQL_EXEC_START, ma.SQL_EXEC_ID,
+                           ma.sql_plan_hash_value"
+  fi
+
+  if [ "$2" = "" -o "$2" = "qc" -o "$2" = "1" -o "$2" = "2" ]; then
+    PRED=" sql_id = (select unique sql_id
+                     from v\$sql_monitor
+                     where 
+          to_char(sql_exec_start,'YY:MM:DD:HH24:MI:SS:')||
+          to_char(sql_exec_id, '0000000000') = 
+                  (select  max(to_char(sql_exec_start,'YY:MM:DD:HH24:MI:SS:')||
+                               to_char(sql_exec_id, '0000000000'))
+                            from v\$sql_monitor))";
+    EXTRA_PRED=" and 1=1"
+ 
+  else
+
+    SQLID="'$2'"
+    HASHVAL=$2
+
+    shift
+
+    #
+    # Check if numeric hash
+    #
+    if [ ${#SQLID} -eq 15 ]; then
+      PRED="sql_id = $SQLID"
+    else
+      PRED="hash_value = $HASHVAL"
+    fi
+  fi
+  
+  EXTRA_PRED=" and 1=1";
+  if [ "$2" != "" ]; then
+    if [ "$2" = "qc" ]; then
+      EXTRA_PRED=" and PX_SERVER_GROUP is NULL"
+    else
+      EXTRA_PRED="$EXTRA_PRED and PX_SERVER_GROUP=$2"
+    fi
+    if [ "$3" != "" ]; then
+      EXTRA_PRED="$EXTRA_PRED and PX_SERVER_SET=$3"
+    fi
+    if [ "$4" != "" ]; then
+      EXTRA_PRED="$EXTRA_PRED and PX_SERVER#=$4"
+    fi
+  fi
+
+  sqlplus -s /NOLOG  << ! | egrep -v "no rows selected|Session altered|Connected|rows selected|successfully"
+
+  connect $DBUSER
+  
+  set echo on
+  set linesize 300
+  set pages 600
+  
+  var sqlid varchar2(13)
+  
+  begin
+    select unique sql_id into :sqlid
+    from v\$sqlarea
+    where $PRED ;
+  end;
+  /
+
+  with 
+    monattr as (select unique SQL_ID, SQL_EXEC_START, SQL_EXEC_ID 
+    from v\$sql_monitor
+    where sql_id = :sqlid and
+          to_char(sql_exec_start,'YY:MM:DD:HH24:MI:SS:')||
+          to_char(sql_exec_id, '0000000000') = 
+                    (select  max(to_char(sql_exec_start,'YY:MM:DD:HH24:MI:SS:')||
+                                 to_char(sql_exec_id, '0000000000'))
+                            from v\$sql_monitor
+                            where sql_id = :sqlid))
+  select SQL_ID, STATUS, PX_SERVER_GROUP slave_grp, 
+         PX_SERVER_SET slave_set, PX_SERVER# slave#, 
+         round(CPU_TIME/1000000) "Cpu (s)",
+         round(ELAPSED_TIME/1000000) "Elapsed (s)", DISK_READS "IO Reads",
+         DIRECT_WRITES "IO Writes"
+  from gv\$sql_monitor
+  where (sql_id, SQL_EXEC_START, SQL_EXEC_ID) in
+                 (select sql_id, SQL_EXEC_START, sql_exec_id from monattr)
+        $EXTRA_PRED
+  order by 1, slave_grp nulls first, slave_set, slave#;
+  
+  
+  set linesize 300
+  
+  col Operation format A60 wrap
+  col id format 999
+  col "Starts#" format A9
+  col "Rows#" format A9
+  col "Cpu(%)" format 999
+  col "IO(%)" format 999
+  col "Tot(%)" format 999
+  col "Wait(%)" format 999
+  col "Prog(%)" format A7
+
+  with
+    monattr as (select KEY, SQL_ID, SID, SQL_EXEC_START, SQL_EXEC_ID,
+                       SQL_PLAN_HASH_VALUE
+                from gv\$sql_monitor
+                where sql_id = :sqlid $EXTRA_PRED and
+                   to_char(sql_exec_start,'YY:MM:DD:HH24:MI:SS:')||
+                   to_char(sql_exec_id, '0000000000') = 
+                  (select  max(to_char(sql_exec_start,'YY:MM:DD:HH24:MI:SS:')||
+                               to_char(sql_exec_id, '0000000000'))
+                            from v\$sql_monitor
+                            where sql_id = :sqlid))
+  select case when active_sec is NULL then NULL
+              when active_sec < 5 then 'X'
+              else '.'
+         end s,
+         line_id Id, 
+         op "Operation", 
+         decode(nbstarts, 0, NULL, nbstarts) "Starts#", 
+         decode(nbstarts, 0, NULL, nbrows)  "Rows#", 
+         decode(percent, 0, NULL, percent) "Prog(%)",
+         mem "Mem (KB)", spill "Spill (KB)",
+         case when cpu_20 = 0 and io_20 = 0 and wait_20 = 0 then '|.'
+              when cpu_20 > io_20 and cpu_20 > wait_20 then '|cpu'
+              when cpu_20 < io_20 and io_20 > wait_20 then '|io'
+              else '|wait' end t20,
+         case when cpu_40 = 0 and io_40 = 0 and wait_40 = 0 then '.'
+              when cpu_40 > io_40 and cpu_40 > wait_40 then 'cpu'
+              when cpu_40 < io_40 and io_40 > wait_40 then 'io'
+              else 'wait' end t40,
+         case when cpu_60 = 0 and io_60 = 0 and wait_60 = 0 then '.'
+              when cpu_60 > io_60 and cpu_60 > wait_60 then 'cpu'
+              when cpu_60 < io_60 and io_60 > wait_60 then 'io'
+              else 'wait' end t60,
+         case when cpu_80 = 0 and io_80 = 0 and wait_80 = 0 then '.'
+              when cpu_80 > io_80 and cpu_80 > wait_80 then 'cpu'
+              when cpu_80 < io_80 and io_80 > wait_80 then 'io'
+              else 'wait' end t80,
+         case when cpu_100 = 0 and io_100 = 0 and wait_100 = 0 then '.   |'
+              when cpu_100 > io_100 and cpu_100 > wait_100 then 'cpu |'
+              when cpu_100 < io_100 and io_100 > wait_100 then 'io  |'
+              else 'wait|' end t100,
+         round((cpu+io+wait) * 100 / total_cnt) "Tot(%)",
+         round(cpu * 100 / total_cnt) "Cpu(%)",
+         round(io * 100 / total_cnt) "IO(%)",
+         round(wait * 100 / total_cnt) "Wait(%)"
+  from
+    (select line_id, op, nbrows, nbstarts, mem, spill, 
+            case when max(ala) is null and max(plc) is NULL then NULL
+            else ((case when max(status) like 'DONE%' then sysdate
+                             else max(last_refresh_time)
+                        end) -
+                  (case when max(ala) is NULL then max(plc)
+                        when max(plc) is NULL then max(ala)
+                        when max(ala) > max(plc) then max(ala) else max(plc)
+                   end)) * 3600 * 24
+            end active_sec,
+     max(total_cnt) total_cnt,
+     sum(case when class = 'CPU' then cnt else 0 end) cpu,
+     sum(case when class = 'IO'  then cnt else 0 end) io,
+     sum(case when class = 'WAIT' then cnt else 0 end) wait,
+     sum(case when class = 'CPU' and period = 20 then cnt else 0 end) cpu_20,
+     sum(case when class = 'IO' and period = 20 then cnt else 0 end) io_20,
+     sum(case when class = 'WAIT' and period = 20 then cnt else 0 end) wait_20,
+       sum(case when class = 'CPU' and period = 40 then cnt else 0 end) cpu_40,
+       sum(case when class = 'IO' and period = 40 then cnt else 0 end) io_40,
+       sum(case when class = 'WAIT' and period = 40 then cnt else 0 end) wait_40,
+       sum(case when class = 'CPU' and period = 60 then cnt else 0 end) cpu_60,
+       sum(case when class = 'IO' and period = 60 then cnt else 0 end) io_60,
+       sum(case when class = 'WAIT' and period = 60 then cnt else 0 end) wait_60,
+       sum(case when class = 'CPU' and period = 80 then cnt else 0 end) cpu_80,
+       sum(case when class = 'IO' and period = 80 then cnt else 0 end) io_80,
+       sum(case when class = 'WAIT' and period = 80 then cnt else 0 end) wait_80,
+       sum(case when class = 'CPU' and period = 100 then cnt else 0 end) cpu_100,
+       sum(case when class = 'IO' and period = 100 then cnt else 0 end) io_100,
+      sum(case when class = 'WAIT' and period = 100 then cnt else 0 end) wait_100
+    from (
+      select p.period, p.class, p.line_id, p.op, p.nbstarts, p.nbrows, p.mem, 
+             p.spill, a.cnt, a.total_cnt, a.ash_active_date ala,
+             p.last_change_time plc, p.last_refresh_time, p.status
+      from
+        (select p.period, c.stype class, p.line_id, p.op, m.nbrows, 
+                m.nbstarts, m.mem, m.spill, m.last_change_time, 
+                m.last_refresh_time, m.status
+         from
+           (select unique decode(depth, 0, '', lpad(' ', depth, ' '))||
+                  OPERATION ||
+                  decode(OPTIONS, null, '', ' '||OPTIONS) ||
+                  decode(OBJECT_NAME, null, '', ' ('|| OBJECT_NAME || ')') op, 
+                             id line_id
+             from   v\$sql_plan pl
+             where  (sql_id, plan_hash_value) = 
+                              (select unique ma.sql_id, ma.sql_plan_hash_value 
+                               from monattr ma)) p,
+           (select max(status) status, plan_line_id line_id,
+                   sum(OUTPUT_ROWS) nbrows, sum(STARTS) nbstarts, 
+                   round(sum(workarea_mem)/1024) mem,
+                   round(sum(workarea_tempseg)/1024) spill, 
+                   max(last_refresh_time) last_refresh_time, 
+                   max(last_change_time) last_change_time
+             from gv\$sql_plan_monitor
+             where key in (select ma.key from monattr ma)
+             group by plan_line_id) m,
+          (select 'IO' stype from dual
+             union all select 'CPU' stype from dual
+             union all select 'WAIT' stype from dual) c,
+          (            select 20 period from dual
+             union all select 40 period from dual
+             union all select 60 period from dual
+             union all select 80 period from dual
+             union all select 100 period from dual) p
+         where  m.line_id = p.line_id) p,
+       (select part * 20 period, line_id,
+                   case when wait_class = 'System I/O' 
+                             or wait_class = 'User I/O'
+                        then 'IO'
+                        when wait_class is NULL then 'CPU'
+                        else 'WAIT' end class, 
+                   count(*) cnt, max(total) total_cnt,
+                   round(count(*)*100/max(total)) perc,
+                   max(ash_active_date) ash_active_date
+            from (select NTILE(5) OVER (ORDER BY sample_time) AS part,
+                sql_plan_line_id line_id, wait_class, (count(*) over ()) total,
+                  cast(SAMPLE_TIME as date) ash_active_date
+                  from gv\$active_session_history 
+                  where ($ASH_JOIN_COLUMN_OUTER) in 
+                          (select $ASH_JOIN_COLUMN_INNER
+                           from   monattr ma))
+            group by part, line_id, wait_class) a
+      where  a.line_id(+) = p.line_id
+        and  a.class(+) = p.class
+        and  a.period(+) = p.period)
+    group by line_id, op, nbrows, nbstarts, mem, spill, status) mon,
+    (select SQL_PLAN_LINE_ID, round(sum(sofar)*100/sum(totalwork)) percent
+     from   gv\$session_longops
+     where  (SQL_ID, SQL_EXEC_START, SQL_EXEC_ID) in 
+                         (select ma.sql_id, ma.SQL_EXEC_START, ma.SQL_EXEC_ID
+                          from monattr ma)
+     group by SQL_PLAN_LINE_ID) lo
+    where lo.SQL_PLAN_LINE_ID(+) = line_id
+  order by line_id;
+  
+    
+!
+
+exit 0
+fi
+
+#
+# sql_task command
+#
+if [ "$1" = "sql_task" ]; then
+
+  if [ "$2" = "progress" ]; then
+    sqlplus -s /NOLOG  << ! | egrep -v "no rows selected|Session altered|Connected|rows selected|successfully"
+
+    connect $DBUSER
+
+    set echo on
+    set linesize 180
+    set pages 600
+    column cur_sqlid format a13
+    column task_name format a25
+
+    select decode(t.advisor_id, 4, 'SQL Tune', 8, 'SPA', 9, 'SQL Repair') 
+             adv_name, t.task_id, t.task_name, p.sofar, p.totalwork, 
+           max(o.attr1) keep (dense_rank last order by object_id asc) cur_sqlid
+    from v\$advisor_progress p, dba_advisor_tasks t, dba_advisor_objects o
+    where p.task_id = t.task_id
+      and t.status = 'EXECUTING'
+      and t.advisor_id in (4,8,9)
+      and p.last_update_time >= t.execution_start
+      and o.task_id (+) = t.task_id
+      and o.type (+) = 'SQL'
+    group by t.advisor_id, t.task_id, t.task_name, p.sofar, p.totalwork, 
+             p.start_time
+    order by p.start_time;
+!
+    exit 0
+  fi
+
+  if [ "$2" = "interrupt" ]; then
+    sqlplus -s /NOLOG  << ! 
+
+    connect $DBUSER
+
+    set echo on
+    set linesize 180
+    set pages 600
+
+    exec dbms_sqltune.interrupt_tuning_task('$3');
+!
+    exit 0
+  fi
+
+  if [ "$2" = "history" ]; then
+
+    NUMEXECS=$3
+    if [ "$NUMEXECS" = "" ]; then
+      NUMEXECS=10
+    fi
+
+    sqlplus -s /NOLOG  << ! | egrep -v "no rows selected|Session altered|Connected|rows selected|successfully"
+
+    connect $DBUSER
+
+    set echo on
+    set linesize 180
+    set pages 600
+    column exec_name format a12
+    column task_name format a25
+
+    alter session set nls_date_format = 'MM/DD HH24:MI';
+
+    select * from (
+    select decode(t.advisor_id, 4, 'SQL Tune', 8, 'SPA', 9, 'SQL Repair') 
+             adv_name, t.task_name, e.execution_name exec_name, 
+           e.execution_start exec_start, e.status,   
+           count(*) num_sqls
+    from   dba_advisor_tasks t, dba_advisor_executions e, dba_advisor_objects o
+    where  t.advisor_id in (4,8,9) and o.task_id = t.task_id and 
+           e.task_id = t.task_id and 
+           nvl(o.execution_name, e.execution_name) = e.execution_name and
+           o.type = 'SQL'
+    group by t.task_id, t.task_name, e.execution_start, e.execution_name, 
+             e.status, t.advisor_id
+    order by exec_start desc) where rownum <= $NUMEXECS;
+!
+
+    exit 0
+  fi
+
+  if [ "$2" = "params" ]; then
+
+    TASK=$3
+    PARAMETER=$4
+
+    sqlplus -s /NOLOG  << ! | egrep -v "no rows selected|Session altered|Connected|rows selected|successfully"
+
+    connect $DBUSER
+
+    set echo on
+    set linesize 180
+    set pages 600
+    column exec_name format a12
+    column exec_param_value format a30
+    column task_param_value format a30
+    column task_name format a25
+
+    alter session set nls_date_format = 'MM/DD HH24:MI';
+
+    select execution_name exec_name, parameter_name, 
+           parameter_value exec_param_value
+    from dba_advisor_exec_parameters
+    where task_name = '$TASK' and 
+          nvl('$PARAMETER', parameter_name) = parameter_name;
+
+    select parameter_name, parameter_value task_param_value
+    from dba_advisor_parameters
+    where task_name = '$TASK' and 
+          nvl('$PARAMETER', parameter_name) = parameter_name;
+!
+
+    exit 0
+  fi
+
+  if [ "$2" = "report" ]; then
+
+    SECTION="$4"
+    if [ "$SECTION" = "" ]; then
+      SECTION="ALL"
+    fi
+
+    sqlplus -s /NOLOG  << ! | egrep -v "no rows selected|Session altered|Connected|rows selected|successfully"
+
+    connect $DBUSER
+
+    set echo on
+    set linesize 180
+    set pages 600
+    set long 1000000000 longchunksize 1000
+
+    select dbms_sqltune.report_tuning_task('$3', 'TEXT', 'ALL', '$SECTION', 
+                                           null, null, null, '$5')
+    from dual;
+!
+
+    exit 0
+  fi
+
+fi
+
+
+#
+# Run a shell command. Useful when combined with repeat...
+#
+if [ "$1" = "sh" ]; then
+
+  shift 1
+  sh -fc "$*"
+  exit 0
+fi
+
+usage "Command $1 not found"
+

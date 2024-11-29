@@ -1,0 +1,207 @@
+
+########## Startup information ##########
+
+Database Started Last                                                                                                   
+----------------------------------------                                                                                
+03-Dec-2014 16:45:38                                                                                                    
+
+########## Current SGA configuration ##########
+
+                                                      RSZ                                                               
+Component                                Current Size Y/N                                                               
+-------------------------------- -------------------- ---                                                               
+Fixed SGA Size                              2,230,632 No                                                                
+Redo Buffers                                3,485,696 No                                                                
+Buffer Cache Size                         360,710,144 Yes                                                               
+Shared Pool Size                          218,103,808 Yes                                                               
+Large Pool Size                             4,194,304 Yes                                                               
+Java Pool Size                              4,194,304 Yes                                                               
+Streams Pool Size                                   0 Yes                                                               
+Shared IO Pool Size                        88,080,384 Yes                                                               
+Granule Size                                4,194,304 No                                                                
+Maximum SGA Size                          592,920,576 No                                                                
+Startup overhead in Shared Pool            69,978,272 No                                                                
+Free SGA Memory Available                           0                                                                   
+
+########## Historic Parameters at Time of Errors ##########
+
+########## Historic Resource Limits at time of error ##########
+
+########## Overall Resource Limits Currently ##########
+
+Resource                           Current              HWM Setting                                                     
+------------------------- ---------------- ---------------- ---------------                                             
+processes                               26               36        150                                                  
+sessions                                31               45        247                                                  
+enqueue_locks                           18               34       3070                                                  
+enqueue_resources                       16               42       1304                                                  
+ges_procs                                0                0          0                                                  
+ges_ress                                 0                0          0                                                  
+ges_locks                                0                0          0                                                  
+ges_cache_ress                           0                0          0                                                  
+ges_reg_msgs                             0                0          0                                                  
+ges_big_msgs                             0                0          0                                                  
+ges_rsv_msgs                             0                0          0                                                  
+gcs_resources                            0                0  UNLIMITED                                                  
+gcs_shadows                              0                0  UNLIMITED                                                  
+smartio_overhead_memory                  0                0          0                                                  
+smartio_buffer_memory                    0                0          0                                                  
+smartio_metadata_memory                  0                0          0                                                  
+smartio_sessions                         0                0          0                                                  
+dml_locks                                0                0       1084                                                  
+temporary_table_locks                    0                1  UNLIMITED                                                  
+transactions                             0                0        271                                                  
+branches                                 0                0        271                                                  
+cmtcallbk                                0                1        271                                                  
+max_rollback_segments                   11               11        271                                                  
+sort_segment_locks                       0                5  UNLIMITED                                                  
+k2q_locks                                0                0        494                                                  
+max_shared_servers                       1                1  UNLIMITED                                                  
+parallel_max_servers                     0                0         40                                                  
+
+########## SGA Related Hidden Parameter Settings ##########
+
+Parameter                           Session Value             Instance Value              
+----------------------------------- ------------------------- -------------------------   
+_4031_dump_bitvec                   67194879                  67194879                    
+_4031_max_dumps                     100                       100                         
+_NUMA_pool_size                     Not specified             Not specified               
+_PX_use_large_pool                  FALSE                     FALSE                       
+__db_cache_size                     272629760                 272629760                   
+__java_pool_size                    4194304                   4194304                     
+__large_pool_size                   4194304                   4194304                     
+__shared_pool_size                  218103808                 218103808                   
+__streams_pool_size                 0                         0                           
+_io_shared_pool_size                4194304                   4194304                     
+_kghdsidx_count                     1                         1                           
+_kgl_heap_size                      4096                      4096                        
+_kill_java_threads_on_eoc           FALSE                     FALSE                       
+_large_pool_min_alloc               65536                     65536                       
+_library_cache_advice               TRUE                      TRUE                        
+_optim_peek_user_binds              TRUE                      TRUE                        
+_px_bind_peek_sharing               TRUE                      TRUE                        
+_shared_pool_reserved_min_alloc     4400                      4400                        
+_shared_pool_reserved_pct           5                         5                           
+
+########## Memory Usage for Pinned Objects          ##########
+
+
+                                                                                             Pinned Objects             
+                                                                              Memory Usage      Memory % To             
+Library Cache Area                                               # of Objects     (KBytes) Shared Pool Size             
+------------------------------------------------------------ ---------------- ------------ ----------------             
+SQL AREA STATS                                                          1,320        6,002             .028             
+MULTI-VERSION OBJECT FOR INDEX                                             34          293             .001             
+MULTI-VERSION OBJECT FOR TABLE                                             31          267             .001             
+TABLE/PROCEDURE                                                            27          123             .001             
+INDEX                                                                       7           32             .000             
+CLUSTER                                                                     6           27             .000             
+
+########## Memory Statistics for Non-Shared SQL Statements ##########
+##########  Non-Shared Code Should Not Exceed 20% Ideally  ##########
+
+Explicit/Minimum Setting:  208MB                                                                                        
+Auto-tuned Setting Currently:  208MB                                                                                    
+=======================================                                                                                 
+Number of stored Objects:  1201 >>> Number run Only Once:   441                                                         
+Memory for All Objects:   73MB >>> Memory for Non-Shared Code: 28MB                                                     
+FINDINGS: ### Ideal to keep memory for non-shared code < 20% .... Actual here: 38% ###                                  
+
+########## Auto-tuning Data ##########
+
+Component                     Current Size         Min Size         Max Size     Granule Size                           
+------------------------- ---------------- ---------------- ---------------- ----------------                           
+shared pool                    218,103,808      218,103,808      218,103,808        4,194,304                           
+large pool                       4,194,304        4,194,304        4,194,304        4,194,304                           
+java pool                        4,194,304        4,194,304        4,194,304        4,194,304                           
+streams pool                             0                0                0        4,194,304                           
+DEFAULT buffer cache           272,629,760      272,629,760      272,629,760        4,194,304                           
+KEEP buffer cache                        0                0                0        4,194,304                           
+RECYCLE buffer cache                     0                0                0        4,194,304                           
+DEFAULT 2K buffer cache                  0                0                0        4,194,304                           
+DEFAULT 4K buffer cache                  0                0                0        4,194,304                           
+DEFAULT 8K buffer cache                  0                0                0        4,194,304                           
+DEFAULT 16K buffer cache                 0                0                0        4,194,304                           
+DEFAULT 32K buffer cache                 0                0                0        4,194,304                           
+Shared IO Pool                  88,080,384       88,080,384       88,080,384        4,194,304                           
+ASM Buffer Cache                         0                0                0        4,194,304                           
+
+Component                 Parameter                          Initial            Final Status     Changed At             
+------------------------- ------------------------- ---------------- ---------------- ---------- -------------------    
+shared pool               shared_pool_size                         0      218,103,808 COMPLETE   12/03/2014 16:45:40    
+large pool                large_pool_size                          0        4,194,304 COMPLETE   12/03/2014 16:45:40    
+java pool                 java_pool_size                           0        4,194,304 COMPLETE   12/03/2014 16:45:40    
+streams pool              streams_pool_size                        0                0 COMPLETE   12/03/2014 16:45:40    
+DEFAULT buffer cache      db_cache_size                  272,629,760      272,629,760 COMPLETE   12/03/2014 16:45:40    
+ASM Buffer Cache          db_cache_size                            0                0 COMPLETE   12/03/2014 16:45:40    
+RECYCLE buffer cache      db_recycle_cache_size                    0                0 COMPLETE   12/03/2014 16:45:40    
+DEFAULT 2K buffer cache   db_2k_cache_size                         0                0 COMPLETE   12/03/2014 16:45:40    
+DEFAULT 4K buffer cache   db_4k_cache_size                         0                0 COMPLETE   12/03/2014 16:45:40    
+DEFAULT 8K buffer cache   db_8k_cache_size                         0                0 COMPLETE   12/03/2014 16:45:40    
+DEFAULT 16K buffer cache  db_16k_cache_size                        0                0 COMPLETE   12/03/2014 16:45:40    
+DEFAULT 32K buffer cache  db_32k_cache_size                        0                0 COMPLETE   12/03/2014 16:45:40    
+KEEP buffer cache         db_keep_cache_size                       0                0 COMPLETE   12/03/2014 16:45:40    
+DEFAULT buffer cache      db_cache_size                            0      272,629,760 COMPLETE   12/03/2014 16:45:40    
+
+########## Statistics on Misses and Uses of Memory in Shared Pool ##########
+
+
+      Shared                                                                                                            
+        Pool           Failed         Reserved         Reserved         Reserved                                        
+      Misses             Size       Free Space              Max              Avg                                        
+------------ ---------------- ---------------- ---------------- ----------------                                        
+           0                0       10,422,856        1,458,064          212,711                                        
+
+                                          Reserved                                                                      
+        Reserved            Total             Area          Size of                                                     
+            Used         Requests           Misses        Last Miss                                                     
+---------------- ---------------- ---------------- ----------------                                                     
+      15,078,752                0                0                0                                                     
+
+########## Overview of Memory Chunk Data for Chunk Sizes and Average Sizes ##########
+
+                 Average  Maximum                                                                                       
+Allocation         Chunk    Chunk                                                                                       
+Class               Size     Size                                                                                       
+------------ ----------- --------                                                                                       
+freeabl           116.74    4,264                                                                                       
+perm               80.00       80                                                                                       
+recr            2,289.18    4,184                                                                                       
+free            1,971.97    4,016                                                                                       
+
+########## Historic V$SGASTAT Data in MBytes Leading to ORA-4031 Errors ##########
+
+########## Historic Hit Ratio Data Leading up to the ORA-4031 Errors ##########
+##########   Reload Ratio to Total Loads Should Ideally be <= 10%    ##########
+##########  Reload Ratio to Invalidations Should Ideally be <= 20%   ##########
+
+########## SQL Area Statistics ##########
+
+====================================                                                                                                                  
+HWM Information:                                                                                                                                      
+----- Max Invalidations:                     4                                                                                                        
+----- Max Versions Loaded:                  26                                                                                                        
+----- Versions HWM:                         26                                                                                                        
+----- Largest Memory object:         1,010,755                                                                                                        
+====================================                                                                                                                  
+
+########## Check How Efficiently Cursors Are Shared ##########
+##########      Ideal Findings Is 80 or Higher ##########
+
+Shared                                                                                                                                                
+Cursor                                                                                                                                                
+ Ratio                                                                                                                                                
+------                                                                                                                                                
+    86                                                                                                                                                
+
+########## LRU Statistics Currently ##########
+
+Array                                                                Count of                           # Times      Last Failed                      
+Row # Subpool Duration # Recurrent Chunks # Transient Chunks    Flushed Items # Changes to LRU           Looped             Size                      
+----- ------- -------- ------------------ ------------------ ---------------- ---------------- ---------------- ----------------                      
+    0       1        0              6,486              8,942                0           40,716                0                0                      
+
+Array                                   Last Size Request       # Exceeded          # scans         # Misses    Last Reserved     Max Reserved        
+Row # Subpool Duration      Alloc Limit  Over Alloc Limit      Alloc Limit         Reserved         Reserved      Size Missed      Size Missed        
+----- ------- -------- ---------------- ----------------- ---------------- ---------------- ---------------- ---------------- ----------------        
+    0       1        0    2,147,483,647                 0                0                0                0                0                0        

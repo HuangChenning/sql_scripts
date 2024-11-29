@@ -1,0 +1,1599 @@
+
+BBED: Release 2.0.0.0.0 - Limited Production on Wed Jun 11 00:39:38 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+show all
+info
+help copy
+copy file 9 block 1 to file 7 block 1;
+set mode edit
+copy file 9 block 1 to file 7 block 1;
+p kcvfh
+info
+set file 7
+map
+p kcvfh
+set count 10
+show all
+set offset 4
+dump
+modify /x c001 offset 6
+#modify /x 4002 filename '/oracle/app/oracle/oradata/orcl1123/htz02.dbf' block 1. offset 6.
+p kcvfhbfh.rdba_kcbh
+p kcvfhhdr.kccfhfsz
+modify /x 0005 offset 44
+#modify /x 8005 filename '/oracle/app/oracle/oradata/orcl1123/htz02.dbf' block 1. offset 44.
+p  kcvfhhdr.kccfhfsz
+p kcvfhhdr.kccfhfno
+modify /x 07 offset 52
+#modify /x 09 filename '/oracle/app/oracle/oradata/orcl1123/htz02.dbf' block 1. offset 52.
+p  kcvfhhdr.kccfhfno
+p kcvfhrfn
+modify /x 07 offset 368
+#modify /x 09 filename '/oracle/app/oracle/oradata/orcl1123/htz02.dbf' block 1. offset 368.
+p kcvfhrfn
+p kcvfh
+pkcvfhrfs
+p kcvfhcrs
+modify /x ed123000 offset 100
+modify /x ed12 offset 100
+#modify /x A218 filename '/oracle/app/oracle/oradata/orcl1123/htz02.dbf' block 1. offset 100.
+modify /x 3000 offset 102
+#modify /x 3000 filename '/oracle/app/oracle/oradata/orcl1123/htz02.dbf' block 1. offset 102.
+p kcvfhcrs
+p kcvfhcpc
+p kcvfhcpc
+verify
+sum apply
+verify
+p kcvfhcrt
+modify /x 00000000 offset 108
+#modify /x 63BCA832 filename '/oracle/app/oracle/oradata/orcl1123/htz02.dbf' block 1. offset 108.
+sum apply
+set block 114
+map
+set file 1 block 114
+mpa
+map
+set file 1 block 233
+map
+x /rnn *kdbr[7]
+x /rnn *kdbr[6]
+show all
+map
+p kcbh
+p kdbh
+help copy
+copy file 2 block 1 to file 4 block 1;
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Wed Jun 11 03:27:27 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+info
+set file 4 block 1
+map
+p kcvfh
+p rdba_kcbh
+p rdba_kcbh
+p kcvfhbfh.rdba_kcbh
+modify /x 4000 offset 4
+set mode edit
+modify /x 4000 offset 4
+modify /x 4000 offset 4
+#modify /x 0100 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 4.
+set count 10
+p kcvfhbfh.rdba_kcbh
+undo
+modify /x 0100 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 4.
+#modify /x 4000 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 4.
+p  kcvfhbfh.rdba_kcbh
+modify /x 4000 offset 6
+#modify /x 8000 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 6.
+p kcvfhbfh.rdba_kcbh
+p kcvfh
+modify /x 04 offset 52
+#modify /x 02 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 52.
+p kcvfh
+p kccfhfsz
+p kcvfhhdr.kccfhfsz
+modify /x c058 offset 46
+#modify /x 0100 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 46.
+p kcvfhhdr.kccfhfsz
+undo
+modify /x 0100 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 46.
+#modify /x C058 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 46.
+p kcvfhhdr.kccfhfsz
+modify /x c058 offset 44
+#modify /x 002C filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 44.
+p kcvfhhdr.kccfhfsz
+modify /x c0580000 offset 44
+modify /x 0000 offset 46
+#modify /x 0100 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 46.
+p kcvfhhdr.kccfhfsz
+p kcvfhcrs
+modify /x e749 offset 100
+#modify /x 8C08 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 100.
+p kcvfhcrs
+p kcvfhcpc
+modify /x 8401 offset 140
+#modify /x 8501 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 140.
+p kcvfhcpc
+set offset 336
+dump
+modify /x 05 offsest 336
+modify /x 05 offset 336
+#modify /x 06 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 336.
+p kcvfhtln
+set offset 3388
+set offset 338
+dump
+help modify
+modify /c USERS offset 338
+#modify /x 5359534155 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 338.
+modify /x 00 offset 344
+#modify /x 00 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 344.
+dump offset 338
+modify /x 00 offset 343
+#modify /x 58 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 343.
+dump offset 338
+p kcvfh
+p kcvfhrfn
+modify /x 04 offset 368
+#modify /x 02 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 368.
+p kcvfhrfn
+sum apply
+verify
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Wed Jun 11 05:01:22 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+show all
+set file 4
+p kcvfh
+p rdba_kcbh
+p kcvfhbfh.rdba_kcbh
+modify /x 0004 offset 6
+set mode edit
+modify /x 0004 offset 6
+#modify /x 4000 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 6.
+set count 10
+p kcvfhbfh.rdba_kcbh
+sum apply
+verify
+modify /x 0001 offset 6
+#modify /x 0004 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 6.
+p  kcvfhbfh.rdba_kcbh
+sum apply
+verify
+set file 1
+set block 233
+map
+x /rnn *kdbr[2]
+x /rnn *kdbr[3]
+set file 4
+p kcvfh
+p kcvfh
+set block 1
+p kcvfh
+set offset 100
+dump
+modify /x 00990000 offset 100
+#modify /x E7490000 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 100.
+dump
+p kcvfh
+sum apply
+verify
+set file 1 bock 233
+map
+set file 1
+set block 233
+x /rn *kdbr[3]
+set file 4
+map
+set file 4
+set block 1
+p kcvfh
+p /d
+help p
+p /d kcvfh
+p kcvfhcrs
+modify /x 4444 offset 102
+#modify /x 0000 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 102.
+p /d kcvfhcrs
+modify /x 0000 offset 102
+#modify /x 4444 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 102.
+p kcvfhcrs
+modify /x 4444 offset 100
+#modify /x 0099 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 100.
+p /d kcvfhcrs
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Wed Jun 11 05:24:32 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set file 4
+p kcvfh
+p kcvfhcrs
+modify e749 offset 100
+set mode edit
+modify /x e749 offset 100
+#modify /x 4444 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 100.
+sum apply
+verify
+p kcvfh
+p kcvfhcrs
+set file 1 block 233
+map
+x /rn *kdbr[3]
+set offset 7852
+dump count 10
+set offset 7856
+dump
+modify /x 16
+#modify /x 14 filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 233. offset 7856.
+sum apply
+verify
+show
+show infl
+info
+x /rn *kdbr[3]
+set file 4 block 1 offset 100
+dump
+modify /d 18921
+#modify /x E749 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 100.
+sum apply
+verify
+set file 4 block 1;
+p kcvfhtsn
+modify /x 04 offset 332
+#modify /x 01 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 332.
+p kcvfhtsn
+sum apply
+verify
+p kcvfh
+set file 1 block 233
+x /rn *kdbr[3]
+set file 4 block 1
+p kcvfhcrs
+modify /x e949 offset 100
+#modify /x 49E9 filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf' block 1. offset 100.
+p kcvfhcrs
+sum apply
+verify
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Tue Jun 24 06:30:13 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/oracle/app/oracle/oradata/orcl1124/system01.dbf';
+st block 225
+set block 225
+dump
+verify
+sum apply
+set mode edit
+sum apply
+sum apply
+verify
+set block 3008
+dump
+map
+verify
+
+BBED: Release 2.0.0.0.0 - Limited Production on Tue Jun 24 06:48:25 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/oracle/app/oracle/oradata/orcl1124/system01.dbf';
+set block 3008
+dump
+verify
+p /v
+help
+help all
+print /v
+x /v
+map /v
+p kdbh
+p kdbt
+p kdbr
+map
+p kdbh
+set offset 96
+set count 10
+dump
+modify /x 6a00
+set mode edit
+modify /x 6a00
+#modify /x FFFF filename '/oracle/app/oracle/oradata/orcl1124/system01.dbf' block 3008. offset 96.
+p kdbh
+sum apply
+verify
+p kdbr[106]
+p kdbr[107]
+set offset 330
+modify /x 6b00
+#modify /x 3300 filename '/oracle/app/oracle/oradata/orcl1124/system01.dbf' block 3008. offset 330.
+p kdbr[108]
+p kdbr[107]
+p kdbr[106]
+p kdbr
+set offset 332
+modify /x 6c00
+#modify /x D700 filename '/oracle/app/oracle/oradata/orcl1124/system01.dbf' block 3008. offset 332.
+set offste 334
+set offset 334
+modify /x ffff
+#modify /x 7E00 filename '/oracle/app/oracle/oradata/orcl1124/system01.dbf' block 3008. offset 334.
+sum apply
+verify
+p kdbh
+modify /x 34 offst 102
+modify /x 3400 offset 102
+#modify /x 0100 filename '/oracle/app/oracle/oradata/orcl1124/system01.dbf' block 3008. offset 102.
+p kdbh
+modify /x 3400 offset 104
+#modify /x 0100 filename '/oracle/app/oracle/oradata/orcl1124/system01.dbf' block 3008. offset 104.
+p kdbh
+sum apply
+verify
+ 
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Fri Jul 18 10:28:31 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/106.disk';
+set blocksize 8192
+map
+p kdbr[23]
+x /rc kdbr[23]
+x /rc *kdbr[23]
+x /rcccnnc *kdbr[23]
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Fri Jul 18 10:31:46 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/106.disk';
+set blocksize 8192
+x  /rcccnnc *kdbr[23]
+modify /d 0000 offset 6073
+set mode edit
+modify /d 0000 offset 6073
+set blocksize 8192
+modify /d 0000 offset 6073
+set blocksize 8192
+set mode edit
+set blocksize 8192
+modify /d 0000 offset 6074
+#modify /x C2 filename '/tmp/106.disk' block 1. offset 6074.
+set offset 6074
+set count 20
+dump
+undo
+modify /x C2 filename '/tmp/106.disk' block 1. offset 6074.
+recover
+help
+help all
+revert
+set blocksize 8192
+set blocksize 8192
+revert
+x  /rcccnnc *kdbr[23]
+set blocksize 8192
+x  /rcccnnc *kdbr[23]
+modify /d 0000 offset 6073
+#modify /x 03 filename '/tmp/106.disk' block 1. offset 6073.
+x  /rcccnnc *kdbr[23]
+revert
+revert
+map
+set blocksize 8192
+x  /rcccnnc *kdbr[23]
+undo
+modify /x 03 filename '/tmp/106.disk' block 1. offset 6073.
+set blocksize 8192
+udo
+undo
+modify /x 03 filename '/tmp/106.disk' block 1. offset 6073.
+help undo
+help undo
+undo help
+modify /x 03 filename '/tmp/106.disk' block 1. offset 6073.
+help
+help all
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Fri Jul 18 10:38:57 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/106.disk';
+set blocksize 8192
+set mode edia
+set mode edia
+set mode edit
+set blocksize 8192
+x  /rcccnnc *kdbr[23]
+set offset 6072
+set count 16 blocksize 8192
+dump
+modify /x 000000 offset 6074
+#modify /x C24A5A filename '/tmp/106.disk' block 1. offset 6074.
+sum apply
+verify
+help
+map
+p kcbh
+modify /x 00 offset
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Fri Jul 18 10:57:05 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/106.disk';
+x  /rcccnnc *kdbr[23]
+set blocksize 8192
+x  /rcccnnc *kdbr[23]
+selex  /rcccnnc *kdbr[23]
+x  /rcccnnc *kdbr[23]
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Fri Jul 18 11:00:25 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/106.disk';
+set blocksize 8192
+x  /rcccnnc *kdbr[23]
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Fri Jul 18 11:02:01 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/106.disk';
+set blocksize 8192
+x  /rcccnnc *kdbr[23]
+x /rcccnnc *dbkr[23]
+x /rcccnnc *kdbr[23]
+set count 10
+set offset 6073
+dump
+
+BBED: Release 2.0.0.0.0 - Limited Production on Sat Jul 19 00:06:11 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/datafile5.dbf'
+verify
+set blocksize 8192
+verify
+set block 106
+dump
+verify
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Sat Jul 19 06:10:40 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/undo'
+set blocksize 8192
+map
+x /rnn *kdbr[0]
+x /rncn *kdbr[0]
+x /rncn *kdbr[1]
+x /rncn *kdbr[2]
+x /rncn *kdbr[3]
+x /rncn *kdbr[4]
+x /rncn *kdbr[1]
+x /rncn *kdbr[2]
+x /rncn *kdbr[3]
+x /rncn *kdbr[4]
+x /rncn *kdbr[5]
+x /rncn *kdbr[6]
+x /rncn *kdbr[7]
+x /rncn *kdbr[8]
+x /rncn *kdbr[9]
+x /rncn *kdbr[10]
+x /rncn *kdbr[11]
+x /rncn *kdbr[12]
+x /rncn *kdbr[13]
+x /rncn *kdbr[14]
+x /rncn *kdbr[15]
+x /rncn *kdbr[16]
+x /rncn *kdbr[17]
+x /rncn *kdbr[18]
+x /rncn *kdbr[19]
+x /rncn *kdbr[20]
+x /rncn *kdbr[21]
+x /rncn *kdbr[22]
+x /rncn *kdbr[23]
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Sat Jul 19 07:27:56 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/file';
+map
+x /rnn *kdbr[1]
+set blocksize 8192
+x /rnn *kdbr[1]
+x /rnn *kdbr[0]
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Sat Jul 19 07:33:36 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/undo2'
+map
+set block 8192
+set blocksize 8192
+map
+p kcvfh
+p  kfdhdb.dsknum
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Sat Jul 19 07:46:56 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/undo2'
+set blockszie 8192
+set blocksize 8192
+map
+p kcvfh
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Sat Jul 19 21:56:46 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+oradebug setmypid
+show all;
+info
+set dba 1,1
+map
+p kcvfh
+set count 10
+set offset 52
+dump
+modify 05 offset 52
+set mode edit
+modify /x 05 offset 52
+#modify /x 02 filename '/oracle/app/oracle/oradata/orcl1024/undotbs01.dbf' block 1. offset 52.
+p kcvfh
+set offset 345
+dump
+modify /x 1 offset 345
+#modify /x 33 filename '/oracle/app/oracle/oradata/orcl1024/undotbs01.dbf' block 1. offset 345.
+p kcvfh
+dump
+set offset 343
+dump
+set offset 345
+dump
+modify /x 31 offset 345
+#modify /x 01 filename '/oracle/app/oracle/oradata/orcl1024/undotbs01.dbf' block 1. offset 345.
+p kcvfh
+set offset 4
+dump
+set offset 6
+dump
+modify /x 4001 offset 6
+#modify /x 8000 filename '/oracle/app/oracle/oradata/orcl1024/undotbs01.dbf' block 1. offset 6.
+p kcvfh
+sum apply
+verifys
+help
+help all
+p kcvfh
+set dump 100
+set offset 100
+dump
+modify /x 004b4323 offset 100
+#modify /x 93572200 filename '/oracle/app/oracle/oradata/orcl1024/undotbs01.dbf' block 1. offset 100.
+p kcvfh
+modify /x 4b432300 offset 100
+#modify /x 004B4323 filename '/oracle/app/oracle/oradata/orcl1024/undotbs01.dbf' block 1. offset 100.
+p /d kcvfh
+sum apply
+verify
+set offset 368
+dump
+modify /x 05 offset 368
+#modify /x 02 filename '/oracle/app/oracle/oradata/orcl1024/undotbs01.dbf' block 1. offset 368.
+sum apply
+verify
+p kcvfh
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Sat Jul 19 22:25:58 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set dba 1,1
+p kcvfh
+p /d kcvfh
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Sat Jul 19 22:29:40 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+info
+set dba 3,114
+map
+x /rn *kdbr[5]
+x /rn *kdbr[4]
+modify /d 231111 offset 7590
+set mode edit
+modify /d 231111 offset 7590
+#modify /x C40320 filename '/oracle/app/oracle/oradata/orcl1024/system01.dbf' block 114. offset 7590.
+x /rn *kdbr[4]
+undo;
+modify /x C40320 filename '/oracle/app/oracle/oradata/orcl1024/system01.dbf' block 114. offset 7590.
+#modify /x 0386C7 filename '/oracle/app/oracle/oradata/orcl1024/system01.dbf' block 114. offset 7590.
+x /rn *kdbr[4]
+set offset 7589
+dump
+set count 10
+dump
+modify /x c3180c0c offset 7590
+modify /x c318 offset 7589
+#modify /x 05C4 filename '/oracle/app/oracle/oradata/orcl1024/system01.dbf' block 114. offset 7589.
+modify /x 0c0c offset 7591
+#modify /x 0320 filename '/oracle/app/oracle/oradata/orcl1024/system01.dbf' block 114. offset 7591.
+dump offset 7589
+x /rn *kdbr[4]
+undo
+modify /x 0320 filename '/oracle/app/oracle/oradata/orcl1024/system01.dbf' block 114. offset 7591.
+#modify /x 0C0C filename '/oracle/app/oracle/oradata/orcl1024/system01.dbf' block 114. offset 7591.
+x /rn *kdbr[4]
+undo
+modify /x 0C0C filename '/oracle/app/oracle/oradata/orcl1024/system01.dbf' block 114. offset 7591.
+#modify /x 0320 filename '/oracle/app/oracle/oradata/orcl1024/system01.dbf' block 114. offset 7591.
+x /rn *kdbr[4]
+revert
+x /rn *kdbr[4]
+modify /x c318 offset 7590
+#modify /x C403 filename '/oracle/app/oracle/oradata/orcl1024/system01.dbf' block 114. offset 7590.
+modify /x 0c0c offset 7592
+#modify /x 200A filename '/oracle/app/oracle/oradata/orcl1024/system01.dbf' block 114. offset 7592.
+x /rn *kdbr[4]
+sum apply
+verify
+set dba 1,1
+map
+p kcvfh
+set offset 100
+dump
+modify /x c8860300 offset 100
+modify /x c886 offset 100
+#modify /x 4B43 filename '/oracle/app/oracle/oradata/orcl1024/undotbs01.dbf' block 1. offset 100.
+modify /x 0300 offset 102
+#modify /x 2300 filename '/oracle/app/oracle/oradata/orcl1024/undotbs01.dbf' block 1. offset 102.
+p kcvfh
+p /d kcvfh
+sum apply
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Sat Jul 19 22:43:09 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set dba 3,1114
+set dba 3,114
+map
+x /rn *kdbr[4]
+set dba 1,1
+p /d kcvfh
+p /d kcvfhcrs dba 2,1
+help all
+assign dba 1,1 offset 100 =dba 2,1 offset 100
+set mode edit
+assign dba 1,1 offset 100 =dba 2,1 offset 100
+#modify /x C8860300 filename '/oracle/app/oracle/oradata/orcl1024/undotbs01.dbf' block 1. offset 100.
+sum apply
+verify
+set block 3,134
+set dba 3,134
+map
+set dba 3,114
+map
+x /rn *kdbr[5]
+x /rn *dbkr[4]
+x /rn *kdbr[4]
+x /rn *kdbr[1]
+dump offset 7701
+modify /x c4011a07 offset 7590
+modify /x c403 offset 7590
+#modify /x C318 filename '/oracle/app/oracle/oradata/orcl1024/system01.dbf' block 114. offset 7590.
+mset count 10
+set count 10
+modify /x 1a07 offset 7592
+#modify /x 0C0C filename '/oracle/app/oracle/oradata/orcl1024/system01.dbf' block 114. offset 7592.
+modify /x 2c offset 7593
+#modify /x 07 filename '/oracle/app/oracle/oradata/orcl1024/system01.dbf' block 114. offset 7593.
+x /rn *kdbr[1]
+x /rn *kdbr[4]
+dump 7701
+dump offset  7701
+dump offset 7589
+modify /x 1a07 offset 7592
+#modify /x 1A2C filename '/oracle/app/oracle/oradata/orcl1024/system01.dbf' block 114. offset 7592.
+modify /x 2c offset 7594
+#modify /x 58 filename '/oracle/app/oracle/oradata/orcl1024/system01.dbf' block 114. offset 7594.
+verify
+sum apply
+verify
+x /rn *kdbr[4]
+x /rn *kdbr[1]
+p kcvfh
+set dba 1,1
+p kcvfh
+set offset 332
+dump
+modify /x 01 offset 332
+#modify /x 06 filename '/oracle/app/oracle/oradata/orcl1024/undotbs01.dbf' block 1. offset 332.
+sum apply
+verify
+
+BBED: Release 2.0.0.0.0 - Limited Production on Mon Jul 21 22:12:49 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/oracle/app/oracle/oradata/orcl1124/system01.dbf';
+set block 128
+dump
+map
+p ktech
+p ktetb
+p ktetb
+map
+p ktuxc
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Tue Jul 22 05:25:08 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/oracle/app/oracle/oradata/orcl1124/undotbs03.dbf';
+set block 2952
+map
+p ktubh
+p ktubhidx[0]
+x /rn ktubhidx[0]
+set offset 34
+set count 30
+dump
+map
+p undodata
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Tue Jul 22 08:23:29 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+
+BBED: Release 2.0.0.0.0 - Limited Production on Mon Jul 21 08:30:25 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/block_30283';
+map
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Mon Jul 21 10:11:58 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set datafile '/tmp/123.dmp'
+set file '/tmp/123.dmp';
+help
+help set
+set filename '/tmp/123.dmp';
+map
+p kdbh
+p ktbbh
+p /d ktbbh
+p kcbh
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Mon Jul 21 10:41:48 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/843.dmp';
+map
+set block 1
+map
+set block 0
+map
+set block 1
+map
+map
+p kcbh
+map
+map
+x /rnn *kdbr[14]
+x /rccn *kdbr[14]
+set offset 6815
+set offset 6814
+dump
+set offset 6815
+dump
+set count 10
+dump
+modify /x 4855414e47
+set edit
+set mode edit
+modify /x 4855414e47
+modify /x 4855414e
+#modify /x 53434F54 filename '/tmp/843.dmp' block 1. offset 6815.
+set offset +4
+modify /x 47
+#modify /x 54 filename '/tmp/843.dmp' block 1. offset 6819.
+dump offset 6815
+map
+dump /c
+help dump
+dump /v
+x /rccn *kdbr[14]
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Mon Jul 21 10:52:31 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/843.dmp';
+map
+verify
+sum apply
+set mode edit
+sum apply
+verify
+sum apply
+verify
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Mon Jul 21 12:32:19 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/dd843.dmp'
+map
+set block 0
+map
+x /rnnc *kdbr[16]
+set block 1
+x /rnn *kdbr[16]
+x /rcc *kdbr[16]
+x  /rcccnnc *kdbr[23]
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Mon Jul 21 12:36:57 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/843.dmp'
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Mon Jul 21 12:37:25 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/843.dmp';
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Mon Jul 21 12:39:06 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/843.dmp'
+map
+x /rcc *kdbr[16]
+x /rcc *kdbr[14]
+set offset 6815
+modify /x 5a484f4e
+set mode edit
+modify /x 5a484f4e
+modify /x 5a484f4e
+#modify /x 4855414E filename '/tmp/843.dmp' block 1. offset 6815.
+set offset +4
+set count 10
+modify /x 47
+#modify /x 47 filename '/tmp/843.dmp' block 1. offset 6819.
+sum apply
+verify
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Mon Jul 21 13:07:58 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/aa.bak';
+map
+verify
+sum apply
+set mode edit
+sum apply
+verify
+p kcbbh
+map
+p kdbh
+set block 1
+set block 2
+map
+set block 1
+p
+map
+dump
+map
+p kcbh
+map
+p kcbh
+map
+p kdbh
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Fri Aug 15 10:57:07 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/743.dmp'
+map
+p ktbbh
+x /rccn *kdbr[56]
+x /rccn *kdbr[57]
+x /rccn *kdbr[58]
+p kdbh
+set offset 110
+dump
+count 100
+set count 100
+set mode edit
+dump
+p kdbh
+set offset 110
+dump
+modify /x 7040
+#modify /x 7003 filename '/tmp/743.dmp' block 1. offset 110.
+sum apply
+verify
+p kdbh
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Fri Aug 15 11:10:12 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/743.dmp'
+map
+p kdbh
+x /rccn *kdbr[56]
+
+BBED: Release 2.0.0.0.0 - Limited Production on Fri Aug 15 11:16:05 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/743.dmp';
+map
+p kdbh
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Fri Aug 15 11:18:10 2014
+
+Copyright (c) 1982, 2007, Oracle.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/tmp/123.dmp';
+p kdbh
+x /rccn *kdbr[56]
+
+BBED: Release 2.0.0.0.0 - Limited Production on Wed Nov 19 23:19:21 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf';
+set block 520
+map
+set block 521
+map
+p kcbh
+p tbbh
+p ktbbh
+map
+show all
+set block 521
+map
+p kdbr[16]
+map
+p kdbr[16]
+x /rn kdbr[16]
+x /rn *kdbr[16]
+x /rnnc *kdbr[16]
+dump offset 3756 count 10
+set count 20
+modify /x 3c offset 3756
+set mode edit
+modify /x 3c offset 3756
+#modify /x 2C filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 521. offset 3756.
+dump offset 3756 count 10
+sum apply
+verify
+map
+p kdbt
+p ktbbh
+p kdbh
+dump offset 80 count 10
+modify /x 5205 offset 80
+#modify /x 8404 filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 521. offset 80.
+dump offset 80 count 10
+p kdbh
+assign
+sum apply
+verify
+map
+p kdbh
+modify /x 5205 offset 78
+#modify /x 8404 filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 521. offset 78.
+p kdbh
+sum apply
+verify
+map
+p kdbh
+map kdbt
+p kdbt
+map kdbt
+p kdbt
+p kkdbr
+p kdbr
+verify
+p kdbh
+modify /x 5405 offset 80
+#modify /x 5205 filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 521. offset 80.
+p kdbh
+verify
+sum apply
+verify
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Wed Nov 19 23:45:35 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf';
+set block 145
+map
+x /rnn *kdbr[8]
+:q
+show all
+set block 145
+map
+x /rnnn *kdbr[8]
+x /rnnn *kdbr[9]
+x /rnnn *kdbr[10]
+x /rnnn *kdbr[7]
+x /rnnn *kdbr[11]
+x /rnnn *kdbr[12]
+x /rnnn *kdbr[1]
+x /rnnn *kdbr[2]
+x /rnnn *kdbr[3]
+x /rnnn *kdbr[4]
+x /rnnn *kdbr[5]
+x /rnnn *kdbr[6]
+x /rnnn *kdbr[7]
+x /rnnn *kdbr[8]
+x /rnnn *kdbr[9]
+x /rnnn *kdbr[10]
+x /rnnn *kdbr[11]
+x /rnnn *kdbr[12]
+x /rnnn *kdbr[13]
+x /rnnn *kdbr[14]
+x /rnnn *kdbr[15]
+x /rnnn *kdbr[16]
+x /rnnn *kdbr[17]
+x /rnnn *kdbr[18]
+x /rnnn *kdbr[19]
+x /rnnn *kdbr[20]
+x /rnnn *kdbr[21]
+x /rnnn *kdbr[22]
+x /rnnn *kdbr[23]
+x /rnnn *kdbr[24]
+x /rnnn *kdbr[25]
+x /rnnn *kdbr[26]
+x /rnnn *kdbr[27]
+x /rnnn *kdbr[28]
+x /rnnn *kdbr[29]
+x /rnnn *kdbr[30]
+x /rnnn *kdbr[31]
+x /rnnn *kdbr[32]
+x /rnnn *kdbr[33]
+x /rnnn *kdbr[34]
+x /rnnn *kdbr[35]
+x /rnnn *kdbr[36]
+x /rnnn *kdbr[37]
+x /rnnn *kdbr[38]
+x /rnnn *kdbr[39]
+x /rnnn *kdbr[40]
+map
+p kdbt
+x /rnn *kdbr[16]
+x /rnn *kdbr[17]
+x /rnn *kdbr[23]
+x /rnn *kdbr[24]
+modify /x 7c offset 6409
+set mode edit
+modify /x 7c offset 6409
+#modify /x 6C filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 145. offset 6409.
+set count 10
+sum apply
+verify
+x /rn *kdbr[5]
+dump offset 8061 count 10
+modify /x 13 offset 8061
+#modify /x 14 filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 145. offset 8061.
+x /rn *kdbr[5]
+sum apply
+verify
+x /rn *kdbr[5]
+modify /x 13 offset 8059
+#modify /x 14 filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 145. offset 8059.
+sum apply
+verify
+p kdbh
+dump offset 102 count 10
+modify /x 0075 offset 102
+#modify /x 2400 filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 145. offset 102.
+p kdbh
+modify /x 7500 offset 102
+#modify /x 0075 filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 145. offset 102.
+p kdbh
+sum apply
+verify
+modify /x 7500 offset 104
+#modify /x 2400 filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 145. offset 104.
+sum apply
+verify
+modify /x 7900 offset 104
+#modify /x 7500 filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 145. offset 104.
+sum apply
+verify
+map
+p kdbh
+x /rnn *kdbr[24]
+
+BBED: Release 2.0.0.0.0 - Limited Production on Wed Nov 19 23:41:59 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf'
+set block 1
+map
+p kcvfh
+p kcvfh.kcvfhrdb
+p kcvfh.kcvfhrdb
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Thu Nov 20 00:12:00 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf';
+set block 1
+map
+p kcvfh.kcvfhrdb
+
+BBED: Release 2.0.0.0.0 - Limited Production on Wed Nov 19 23:26:23 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf';
+set block 1
+p kcvfh
+set offset 96
+set count 20
+dump
+modify /x 08024000 offset 96
+set mode edit
+modify /x 08024000 offset 96
+#modify /x 60764100 filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 1. offset 96.
+dump offset 96 count 10
+p kcvfh.kcvfhrdb
+sum apply
+verify
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Thu Nov 20 20:24:51 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf '
+set filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf';
+set block 520
+map
+p kcbh
+set block 519
+map
+p kcbh
+
+BBED: Release 2.0.0.0.0 - Limited Production on Fri Nov 21 13:40:54 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf';
+set block 521
+map
+x /rnn *kdbr[8]
+x /rnnc *kdbr[8]
+set mode edit
+set count 10
+modify /x 3c offset 5823
+#modify /x 2C filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 521. offset 5823.
+dump offset 5823
+x /rnnc *kdbr[8]
+sum apply
+verify
+p kdbh
+modify /x 5005 offset 80
+#modify /x 8404 filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 521. offset 80.
+p kdbh
+sum apply
+verify
+modify /x 5005 offset 78
+#modify /x 8404 filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 521. offset 78.
+p kdbh
+sum apply
+verify
+modify /x 5205 offset 80
+#modify /x 5005 filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 521. offset 80.
+sum apply
+verify
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Fri Nov 21 19:46:20 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf';
+set block 1
+p kcvfh.kcvfhrdb
+dump offset 96 count 20
+modify /x 48504100 offset 96 count 20
+set mode edit
+set count 20
+modify /x 48504100 offset 96 count 20
+modify /x 48504100 offset 96
+#modify /x 08024000 filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 1. offset 96.
+sum apply
+verify
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Fri Nov 21 19:48:35 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+modify /x 08024000 offset 96
+set filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf';
+set mode edit
+modify /x 08024000 offset 96
+#modify /x 48504100 filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 1. offset 96.
+sum apply
+verify
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Fri Nov 21 19:51:02 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf'
+set mode edit
+modify /x 48504100 offset 96
+#modify /x 08024000 filename '/oracle/app/oracle/oradata/orcl1123/system01.dbf' block 1. offset 96.
+sum apply
+verify
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Fri Nov 28 14:54:28 2014
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/oracle/app/oracle/oradata/orcl1123/users01.dbf'
+set block 845
+map
+dump
+exit
+ 
+
+BBED: Release 2.0.0.0.0 - Limited Production on Wed Aug 3 02:26:33 2016
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set block 233
+mpa
+map
+x /dd *kdbr[29]
+help
+help all
+examine /20rddx *kdbr[29]
+x /20rddx *kdbr[29]
+x /1dd *kdbr[29]
+help all
+x /1r dd *kdbr[29]
+x /1rdd *kdbr[29]
+x /1rdd *kdbr[28]
+x /1wdd *kdbr[28]
+x /1udd *kdbr[28]
+x /1hdd *kdbr[28]
+x /1h *kdbr[28]
+set offset 3986
+set count 20
+dump
+set offset 3980
+dump
+x /1rcc *kdbr[29]
+x /1rcc *kdbr[28]
+x /1rxx  *kdbr[28]
+x /1rxx  *kdbr[29]
+x /1rdd *kdbr[29]
+x /1rdd *kdbr[28]
+x /1rddd *kdbr[28]
+x /1rddd *kdbr[27]
+map
+p kdbr[0]
+x /dd *kdbr[0]
+x /1dd *kdbr[0]
+x /1rdd *kdbr[0]
+x /1rdd *kdbr[-1]
+x /1rdd *kdbr[1]
+x /30rdd *kdbr[0]
+x /29rdd *kdbr[0]
+x /29rdd  *kdbr[1]
+x /10rdd *kdbr[29]
+x /10rdd *kdbr[28]
+p *kdbr[10]
+p *kdbr[28]
+x /r
+x /rdd
+x /rdd *kdbr[28]
+x /rdd *kdbr[28]
+set offset 4395
+dump
+modify /x 3c offset 4395
+set mode edit
+modify /x 3c offset 4395
+#modify /x 2C filename '/oracle/app/oracle/oradata/htz11203/system01.dbf' block 233. offset 4395.
+verify
+sum apply
+verisy
+verify
+p ktbbh
+set offset 62
+dump
+modify /x 00 offset 62
+#modify /x 02 filename '/oracle/app/oracle/oradata/htz11203/system01.dbf' block 233. offset 62.
+p ktbbh
+sum  apply
+verify
+p kdbh
+set offset 78
+dump
+modify /851a offset 78
+modify /x 851a offset 78
+#modify /x 5D1A filename '/oracle/app/oracle/oradata/htz11203/system01.dbf' block 233. offset 78.
+dump
+p kdbh
+modify /x 851a offset 80
+#modify /x 5F1A filename '/oracle/app/oracle/oradata/htz11203/system01.dbf' block 233. offset 80.
+sum apply
+verify
+p
+map
+p kdbh
+modify /x 20 offset 70
+#modify /x 21 filename '/oracle/app/oracle/oradata/htz11203/system01.dbf' block 233. offset 70.
+p kdbh
+sum apply
+verify
+p kdbh
+modify /d 82 offset 74
+#modify /x 54 filename '/oracle/app/oracle/oradata/htz11203/system01.dbf' block 233. offset 74.
+p kdbh
+sum apply
+verify
+map
+k kcbh
+p kcbh
+p ktbbh
+p kdbh
+p kdbt
+modify /d 32 offset 84
+#modify /x 21 filename '/oracle/app/oracle/oradata/htz11203/system01.dbf' block 233. offset 84.
+sum apply
+verify
+p kdbt
+p kdbh
+modify /d 6829 offset 78
+#modify /x 851A filename '/oracle/app/oracle/oradata/htz11203/system01.dbf' block 233. offset 78.
+p kdbh
+modify /x ad1a offset 78
+#modify /x 1AAD filename '/oracle/app/oracle/oradata/htz11203/system01.dbf' block 233. offset 78.
+modify /x ad1a offset 80
+#modify /x 851A filename '/oracle/app/oracle/oradata/htz11203/system01.dbf' block 233. offset 80.
+p kdbh
+sum apply
+verify
+map
+p ktbbh
+modify /x af1a offset 78
+#modify /x AD1A filename '/oracle/app/oracle/oradata/htz11203/system01.dbf' block 233. offset 78.
+sum apply
+verify
+modify /x af1a offset 80
+#modify /x AD1A filename '/oracle/app/oracle/oradata/htz11203/system01.dbf' block 233. offset 80.
+modify /x ad1a offset 78
+#modify /x AF1A filename '/oracle/app/oracle/oradata/htz11203/system01.dbf' block 233. offset 78.
+sum apply
+verify
+
+BBED: Release 2.0.0.0.0 - Limited Production on Sun Aug 28 14:15:44 2016
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+************* !!! For Oracle Internal Use only !!! ***************
+
+set filename '/oracle/app/oracle/oradata/htz11203/htz01.dbf'
+map
+p kcvfh
+set count 512
+dump
+exit
+ 

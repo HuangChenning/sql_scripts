@@ -1,0 +1,370 @@
+SET FEEDBACK OFF NUMWIDTH 10 LINESIZE 32767 TRIMSPOOL ON TAB OFF PAGESIZE 0 EMB ON
+SET APPINFO ON DEFINE "&" VERIFY OFF SERVEROUTPUT ON SIZE 1000000 FORMAT TRUNCATED
+
+-- ALTER SESSION SET PLSQL_CCFLAGS='XTT_TESTING:TRUE';
+
+-- REM DON'T FORGET ABOUT THIS SPOOL
+SPOOL %%tmp%%/xttprepare.cmd
+DECLARE
+  l_detnew          CONSTANT BOOLEAN := ('%%type%%' = 'DETNEW');
+  l_prepare         CONSTANT BOOLEAN := ('%%type%%' = 'PREPARE');
+  l_transfer        CONSTANT BOOLEAN := ('%%type%%' = 'TRANSFER');
+  l_prepnext        CONSTANT BOOLEAN := ('%%type%%' = 'PREPNEXT');
+  lc_batch_size     CONSTANT NUMBER := 10000;
+  DEBUG             CONSTANT BOOLEAN := FALSE;
+  CRLF              CONSTANT BOOLEAN := TRUE;
+  PLAN              CONSTANT BOOLEAN := TRUE;
+  l_tsn             dbms_sql.number_table;
+  l_names           dbms_sql.varchar2_table;
+  l_dnames          dbms_sql.varchar2_table;
+  l_fnames          dbms_sql.varchar2_table;
+  l_prev            user_tablespaces.tablespace_name%TYPE;
+  l_files           dbms_sql.number_table;
+  l_ckpch           dbms_sql.number_table;
+  l_pname           v$database.platform_name%TYPE;
+  l_stageondest     CONSTANT VARCHAR2(4000) := '%%stageondest%%';
+  l_storageondest   CONSTANT VARCHAR2(4000) := '%%storageondest%%';
+  l_dfcopydir       CONSTANT VARCHAR2(4000) := '%%dfcopydir%%';
+  l_tmp             CONSTANT VARCHAR2(4000) := '%%tmp%%';
+  l_parallelism     CONSTANT VARCHAR2(200) := '%%parallel%%';
+
+  -- The hints for the query below are handcrafted
+  -- and should cover 11g (w/ and w/o the fix for
+  -- bug#8248459 in place) well as 12c. Ideally a
+  -- backport of 8248459 has to be applied on both
+  -- source and target databases.
+  CURSOR dc
+  IS
+    SELECT ts#
+         , name
+         , df.dname
+         , df.fname
+         , file#
+         , checkpoint_change#
+      FROM (
+           SELECT /*+
+                    LEADING(t.x$kccts)
+                    USE_HASH(d.df)
+                    FULL(t.x$kccts)
+                    FULL(d.df)
+                    USE_HASH(d.fe)
+                    USE_HASH(d.fn)
+                    USE_HASH(d.fh)
+                    LEADING(d.fe d.fn d.fh)
+                  */
+                  ROW_NUMBER()
+                  OVER (
+                    PARTITION BY d.ts# ORDER BY file#
+                  ) rn
+                , MIN(
+                    CASE
+                      WHEN enabled = 'READ WRITE'
+                       AND status = 'ONLINE'
+                      THEN d.ts#
+                      ELSE -d.ts#
+                    END
+                  ) OVER (
+                     PARTITION BY d.ts#
+                  ) ts#
+                , t.name
+                , REGEXP_REPLACE(d.name, '(.*)/(.*)', '\1') dname
+                , REGEXP_REPLACE(d.name, '(.*)/(.*)', '\2') fname
+                , file#
+                , MIN(checkpoint_change#)
+                  OVER (
+                    PARTITION BY d.ts#
+                  ) checkpoint_change#
+             FROM $IF $$XTT_TESTING
+                  $THEN
+                  (
+                  SELECT USERENV('INSTANCE') inst_id
+                       , ts#
+                       , CASE WHEN ts# = 0
+                              THEN status
+                              WHEN ts# IN (8)
+                              THEN 'OFFLINE'
+                              ELSE 'ONLINE'
+                         END status
+                       , CASE WHEN ts# = 0
+                              THEN enabled
+                              WHEN ts# IN (9)
+                              THEN 'READ ONLY'
+                              ELSE 'READ WRITE'
+                         END enabled
+                       , file#
+                       , checkpoint_change#
+                    FROM gv$datafile
+                  )
+                  $ELSE
+                  gv$datafile
+                  $END d
+                , v$tablespace t
+            WHERE d.ts# = t.ts#
+              AND d.inst_id = USERENV('INSTANCE')
+              AND t.name IN (
+                    %%TABLESPACES%%
+                  )
+          ) df
+     WHERE rn = 1
+        OR ts# > 0
+     ORDER BY
+           ts#
+         , rn
+    ;
+
+  PROCEDURE d (
+    i_msg           VARCHAR2 DEFAULT NULL
+  , i_crlf          BOOLEAN DEFAULT TRUE
+  )
+  IS
+  BEGIN
+    IF (DEBUG)
+    THEN
+      IF (i_crlf)
+      THEN
+        dbms_output.put_line(
+          '#DEBUG:' || i_msg
+        );
+      ELSE
+        dbms_output.put(
+          '#DEBUG:' || i_msg
+        );
+      END IF;
+    END IF;
+  END d;
+
+  PROCEDURE t (
+    i_msg           VARCHAR2 DEFAULT NULL
+  , i_crlf          BOOLEAN DEFAULT TRUE
+  )
+  IS
+    l_prepend       VARCHAR2(256) := '#TRANSFER:';
+  BEGIN
+    IF (l_transfer)
+    THEN
+      IF (i_crlf)
+      THEN
+        dbms_output.put_line(
+          l_prepend || 'source_file_name=' || i_msg || ''
+        );
+      ELSE
+        dbms_output.put(
+          l_prepend || 'source_file_name=' || i_msg || ''
+        );
+      END IF;
+    END IF;
+  END t;
+
+  PROCEDURE p (
+    i_msg           VARCHAR2 DEFAULT NULL
+  , i_crlf          BOOLEAN DEFAULT TRUE
+  )
+  IS
+    l_prepend       VARCHAR2(256) := CASE
+                                       WHEN (l_prepare OR l_transfer)
+                                         THEN '#PLAN:'
+                                         ELSE ' '
+                                     END;
+  BEGIN
+    IF ((l_prepare OR l_transfer) OR l_detnew)
+    THEN
+      IF (i_crlf)
+      THEN
+        dbms_output.put_line(
+          l_prepend || i_msg
+        );
+      ELSE
+        dbms_output.put(
+          l_prepend || i_msg
+        );
+      END IF;
+    END IF;
+  END p;
+
+  PROCEDURE r (
+    i_msg           VARCHAR2 DEFAULT NULL
+  , i_crlf          BOOLEAN DEFAULT TRUE
+  )
+  IS
+  BEGIN
+    IF (l_prepare) THEN
+      IF (i_crlf)
+      THEN
+        dbms_output.put_line(
+          '#CONVERT:' || i_msg
+        );
+      ELSE
+        dbms_output.put(
+          '#CONVERT:' || i_msg
+        );
+      END IF;
+    END IF;
+  END r;
+
+  PROCEDURE cp (
+    i_msg           VARCHAR2 DEFAULT NULL
+  , i_crlf          BOOLEAN DEFAULT TRUE
+  )
+  IS
+  BEGIN
+    IF (l_prepare)
+    THEN
+      IF (i_crlf)
+      THEN
+        dbms_output.put_line(i_msg);
+      ELSE
+        dbms_output.put(i_msg);
+      END IF;
+    END IF;
+  END cp;
+
+  PROCEDURE t_listdatfiles (
+    i_msg           VARCHAR2 DEFAULT NULL
+  , i_dfdir         BOOLEAN DEFAULT FALSE
+  )
+  IS
+    l_prepend       VARCHAR2(256) := '#FNAME:';
+  BEGIN
+    
+    IF (l_transfer)
+    THEN
+    IF (i_dfdir)
+    THEN
+      l_prepend := '#DNAME:';
+    END IF;
+
+    dbms_output.put_line(
+        l_prepend || i_msg
+        );
+    END IF;
+  END t_listdatfiles;
+
+  PROCEDURE t_newdatafiles (
+    i_msg           VARCHAR2 DEFAULT NULL
+  , i_crlf          BOOLEAN DEFAULT TRUE
+  )
+  IS
+    l_prepend       VARCHAR2(256) := '#NEWDESTDF:';
+  BEGIN
+    IF (l_transfer)
+    THEN
+      IF (i_crlf)
+      THEN
+        dbms_output.put_line(
+          l_prepend || i_msg
+        );
+      ELSE
+        dbms_output.put(
+          l_prepend || i_msg
+        );
+      END IF;
+    END IF;
+  END t_newdatafiles;
+
+BEGIN
+  OPEN dc;
+  LOOP
+    FETCH dc
+     BULK COLLECT
+     INTO l_tsn
+        , l_names
+        , l_dnames  
+        , l_fnames  
+        , l_files
+        , l_ckpch
+    LIMIT lc_batch_size;
+    EXIT WHEN l_tsn.COUNT = 0;
+    FOR i IN 1..l_tsn.COUNT
+    LOOP
+      IF (((l_prepare OR l_transfer) OR l_prepnext)  AND l_tsn(i) < 1)
+      THEN
+        d( 'Tablespace ' || l_names(i) || ' [' || -l_tsn(i) || ']'
+        || ' is special, read only or has some offline files! Skipping...'
+        );
+        RAISE_APPLICATION_ERROR(-20001, 'TABLESPACE(S) IS READONLY OR,
+                                         OFFLINE JUST CONVERT, COPY');
+      ELSE
+        IF (l_prepare AND l_pname IS NULL)
+        THEN
+          SELECT platform_name
+            INTO l_pname
+            FROM v$database;
+        END IF;
+        t_listdatfiles(l_dnames(i), TRUE);
+        t_listdatfiles(l_fnames(i));
+        d( 'Processing file# ' || l_files(i)
+        || ' with checkpoint_change# ' || l_ckpch(i) || ' of '
+        || l_names(i) || ' [' || l_tsn(i) || ']'
+        );
+        -- June 04 2014: Following change was done to allow many datafiles
+        -- to be copied together instead of be done in a serial manner.
+        -- It will be like backup as copy datafile x,y,z instead of the
+        -- current backup as copy datafile x, backup as copy datafile y.
+        IF (l_prev IS NULL)
+        THEN
+          p(l_names(i) || '::::' || TO_CHAR(l_ckpch(i), 'FM999999999999999'));
+          r('host ''echo ts::' || l_names(i) || ''';');
+          IF (l_prepare) THEN
+            r('  convert from platform ''' || l_pname || '''');
+            r('  datafile ');
+            cp('backup as copy tag ''' ||  'prepare' || ''' datafile');
+          END IF;
+        END IF;
+        -- June 04 2014: Following change was done to allow many datafiles
+        -- to be copied together instead of be done in a serial manner.
+        -- It will be like backup as copy datafile x,y,z instead of the
+        -- current backup as copy datafile x, backup as copy datafile y.
+        IF (l_prev <> l_names(i))
+	    THEN
+           r('  format ''' || l_storageondest || '/%N_%f.xtf''');
+           r(' parallelism ' || l_parallelism || ';');
+           p(l_names(i) || '::::' || TO_CHAR(l_ckpch(i), 'FM999999999999999'));
+           r('host ''echo ts::' || l_names(i) || ''';');
+           r('  convert from platform ''' || l_pname || '''');
+           r('  datafile ');
+        END IF; 
+	    r('  ' ||
+	      CASE
+            WHEN l_prev = l_names(i)
+            THEN ','
+            ELSE ' '
+          END 
+        || ''''
+        || l_stageondest || '/' || l_names(i)
+        || '_' || l_files(i) || '.tf'''
+        );
+        t( 
+           l_names(i) || ',' || l_fnames(i)
+        );
+        t_newdatafiles( 
+        l_files(i) || ',' || 'DESTDIR:' || '/'
+        || l_fnames(i)
+        );
+        cp(
+	   CASE
+           -- June 04 2014: Following change was done to allow many datafiles
+           -- to be copied together instead of be done in a serial manner.
+           -- It will be like backup as copy datafile x,y,z instead of the
+           -- current backup as copy datafile x, backup as copy datafile y.
+            WHEN l_prev IS NULL
+            THEN ' '
+            ELSE ','
+	   END
+        || l_files(i)
+        );
+        p(l_files(i));
+        l_prev := l_names(i);
+      END IF;
+    END LOOP;
+  END LOOP;
+  IF (l_prepare AND l_prev IS NOT NULL)
+  THEN
+    r('  format ''' || l_storageondest || '/%N_%f.xtf''');
+    r(' parallelism ' || l_parallelism || ';');
+    cp('  format ''' || l_dfcopydir || '/%N_%f.tf'';');
+  END IF;
+  CLOSE dc;
+END;
+/
+SPOOL OFF
+EXIT

@@ -1,0 +1,1 @@
+adrci exec='show homepath'| awk '{print  homepath"/"$1"/trace"}' homepath=$ORACLE_BASE

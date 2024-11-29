@@ -1,0 +1,34 @@
+
+Recovery Manager: Release 11.2.0.4.0 - Production on Tue Feb 23 23:01:58 2016
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+
+DBGSQL:     TARGET> declare dot1st number; dot2nd number; dot3rd number; comptxt varchar2(255) := :vcomp_txt; begin comptxt := comptxt || '.0.0'; dot1st := instr(comptxt, '.', 1, 1); dot2nd := instr(comptxt, '.', 1, 2); dot3rd := instr(comptxt, '.', 1, 3); comptxt :=  lpad(substr(comptxt, 1, dot1st - 1), 2, '0') || lpad(substr(comptxt, dot1st + 1, dot2nd - dot1st - 1), 2, '0')  || lpad(substr(comptxt, dot2nd + 1, dot3rd - dot2nd - 1), 2, '0');:vcomp_ub4 := to_number(comptxt); end;
+DBGSQL:        sqlcode = 6502
+DBGSQL:         B :vcomp_ub4 = NULL
+DBGSQL:         B :vcomp_txt = 
+11.2.0.4.0
+connected to target database: ORCL1124 (DBID=3389120558)
+using target database control file instead of recovery catalog
+
+RMAN> 
+
+Recovery Manager complete.
+
+Recovery Manager: Release 11.2.0.4.0 - Production on Tue Feb 23 23:02:06 2016
+
+Copyright (c) 1982, 2011, Oracle and/or its affiliates.  All rights reserved.
+
+
+DBGSQL:     TARGET> declare dot1st number; dot2nd number; dot3rd number; comptxt varchar2(255) := :vcomp_txt; begin comptxt := comptxt || '.0.0'; dot1st := instr(comptxt, '.', 1, 1); dot2nd := instr(comptxt, '.', 1, 2); dot3rd := instr(comptxt, '.', 1, 3); comptxt :=  lpad(substr(comptxt, 1, dot1st - 1), 2, '0') || lpad(substr(comptxt, dot1st + 1, dot2nd - dot1st - 1), 2, '0')  || lpad(substr(comptxt, dot2nd + 1, dot3rd - dot2nd - 1), 2, '0');:vcomp_ub4 := to_number(comptxt); end;
+DBGSQL:        sqlcode = 6502
+DBGSQL:         B :vcomp_ub4 = NULL
+DBGSQL:         B :vcomp_txt = 
+11.2.0.4.0
+connected to target database: ORCL1124 (DBID=3389120558)
+using target database control file instead of recovery catalog
+
+RMAN> 
+
+Recovery Manager complete.
