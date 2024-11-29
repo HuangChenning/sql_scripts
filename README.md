@@ -3,6 +3,6 @@
 
 ![Static Badge](https://img.shields.io/badge/Author-HuangCN-blue)
 
-Oracle sqlplus scripts
 
-收藏一些日常使用的Oracle脚本
+自己编写或收藏他人在日常工作中使用到的数据库脚本，目前暂时只有Oracle脚本，后续扩展其他数据库。
+
