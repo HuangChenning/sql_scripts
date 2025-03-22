@@ -1,3 +1,4 @@
+/* 查看参数，包括隐藏参数 */
 set echo off
 set verify off
 set lines 250
