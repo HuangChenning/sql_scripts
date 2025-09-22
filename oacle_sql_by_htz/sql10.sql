@@ -1,16 +1,20 @@
 -- File Name : sql10.sql
--- Purpose : œ‘ æsql”≈ªØ–≈œ¢
+-- Purpose : ÊòæÁ§∫sql‰ºòÂåñ‰ø°ÊÅØ
 -- Date : 2015/09/05
--- »œ’ÊæÕ ‰°¢QQ:7343696
+-- ËÆ§ÁúüÂ∞±Ëæì„ÄÅQQ:7343696
 -- http://www.htz.pw
--- 20160824 ÃÌº”∑÷«¯À˜“˝µƒ◊¥Ã¨£¨ÃÌº”À˜“˝∑÷«¯–≈œ¢
--- 20160901 ‘ˆº”À˜“˝µƒ—πÀı£¨∑÷«¯£¨¡Ÿ ±µ» Ù–‘(UCPTDVS)
--- 20161107 ÃÌº”¥”ASH÷–ªÒ»°÷¥––º∆ªÆ≤Ω÷ËµƒÕ≥º∆–≈œ¢£¨÷ß≥÷11GR2“‘…œ ˝æ›ø‚
--- 20161115 ÃÌº”AWR sql_statµƒ–≈œ¢
--- 20161129 ÃÌº”10GR2∞Ê±æµƒ÷ß≥÷
--- 20180426 –ﬁ∏¥≤ø∑÷∂‘œÛ≤ªƒ‹Õ≥º∆¥Û–°
--- 20180426 ÃÌº”sql monitor–≈œ¢£¨ƒ¨»œ¥Àπ¶ƒ‹ «πÿ±’µƒ£¨Õ®π˝_SQL_MONITOR¿¥ø™∆Ù
--- 20180520 ÷ß≥÷‘⁄cdbª∑æ≥÷–‘À––£¨µ´ «ƒø«∞÷ª÷ß≥÷‘⁄pdb÷–÷ªƒ‹¥Ê‘⁄Œ®“ª“ªÃısql_idµƒ«Èøˆ
+-- 20160824 Ê∑ªÂä†ÂàÜÂå∫Á¥¢ÂºïÁöÑÁä∂ÊÄÅÔºåÊ∑ªÂä†Á¥¢ÂºïÂàÜÂå∫‰ø°ÊÅØ
+-- 20160901 Â¢ûÂä†Á¥¢ÂºïÁöÑÂéãÁº©ÔºåÂàÜÂå∫Ôºå‰∏¥Êó∂Á≠âÂ±ûÊÄß(UCPTDVS)
+-- 20161107 Ê∑ªÂä†‰ªéASH‰∏≠Ëé∑ÂèñÊâßË°åËÆ°ÂàíÊ≠•È™§ÁöÑÁªüËÆ°‰ø°ÊÅØÔºåÊîØÊåÅ11GR2‰ª•‰∏äÊï∞ÊçÆÂ∫ì
+-- 20161115 Ê∑ªÂä†AWR sql_statÁöÑ‰ø°ÊÅØ
+-- 20161129 Ê∑ªÂä†10GR2ÁâàÊú¨ÁöÑÊîØÊåÅ
+-- 20180426 ‰øÆÂ§çÈÉ®ÂàÜÂØπË±°‰∏çËÉΩÁªüËÆ°Â§ßÂ∞è
+-- 20180426 Ê∑ªÂä†sql monitor‰ø°ÊÅØÔºåÈªòËÆ§Ê≠§ÂäüËÉΩÊòØÂÖ≥Èó≠ÁöÑÔºåÈÄöËøá_SQL_MONITORÊù•ÂºÄÂêØ
+-- 20180520 ÊîØÊåÅÂú®cdbÁéØÂ¢É‰∏≠ËøêË°åÔºå‰ΩÜÊòØÁõÆÂâçÂè™ÊîØÊåÅÂú®pdb‰∏≠Âè™ËÉΩÂ≠òÂú®ÂîØ‰∏Ä‰∏ÄÊù°sql_idÁöÑÊÉÖÂÜµ
+-- 20230111 ‰øÆÊîπawrÈáåÊÄßËÉΩÊï∞ÊçÆÊòæÁ§∫ÁöÑÂçï‰Ωç
+-- 20250819 ‰øÆÊîπSQLÊÄßËÉΩÊåáÊ†áÊòæÁ§∫Âçï‰ΩçÁöÑÊ†ºÂºè
+-- 20250921 Ê∑ªÂä†Âú®AWR‰∏≠‰∏çÂú®ÂÜÖÂ≠ò‰∏≠ÁöÑÊâßË°åËÆ°ÂàíÁöÑÊòæÁ§∫
+-- 20250922 ‰øÆÊîπ‰∏∫ÁªëÂÆöÂèòÈáèÊ®°Âºè
 
 alter session set nls_date_format='yyyymmdd';
 set serveroutput on size 1000000
@@ -19,9 +23,16 @@ SET VERIFY OFF
 set linesize 200
 set echo off
 set pages 0
-undefine sqlid;
-select '&&sqlid' from dual;
-define _SQL_MONITOR = "--"
+
+
+var sql_id_bind varchar2(30)
+
+
+begin
+  :sql_id_bind := '&&sqlid';
+end;
+/
+
 define _VERSION_11  = "--"
 define _VERSION_12  = "--"
 define _VERSION_10  = "--"
@@ -30,6 +41,8 @@ col pdbname    noprint new_value _PDBNAME
 col version12  noprint new_value _VERSION_12
 col version11  noprint new_value _VERSION_11
 col version10  noprint new_value _VERSION_10
+
+
 select /*+ no_parallel */case
          when substr(banner,
                      instr(banner, 'Release ') + 8,
@@ -72,31 +85,42 @@ col PARSE_CALLS             heading "PARSE|CALLS"        for 99999,999,999
 col DISK_READS              heading "DISK|READS"         for 999999,999,999
 col BUFFER_GETS             heading "BUFFER|GETS"        for 999999,999,999
 col SORTS                   heading "SORTS"              for 999999,999,999
-col ROWS_PROCESSED          heading "ROWS|PROCESSED"     for 999999,999,999
+col ROWS_PROCESSED          heading "ROWS|PROCESSED"     for a8
 COL INSTANCE_NUMBER         heading "I"                  for a1
 COL PARSING_SCHEMA_NAME     heading "NAME"               for a15
-col FETCHES                 heading "FETCHES"            for 999999,999,999
+col FETCHES                 heading "FETCHES"            for a8
 col ROW_PROCESSES           heading "ROW_PROC"           for a5
 col EXECUTIONS              heading "EXEC"               for a10
-col CPU_PRE_EXEC            heading "CPU(MS)|PRE EXEC"       for 999,999
-col ELA_PRE_EXEC            heading "ELA(MS)|PRE EXEC"       for 999,999
-col DISK_PRE_EXEC           heading "DISK|PRE EXEC"      for 999,999
-col GET_PRE_EXEC            heading "GET|PRE EXEC"       for 999,999,999
-col ROWS_PRE_EXEC           heading "ROWS|PRE EXEC"      for 999,999,99
-col ROWS_PRE_FETCHES        heading "ROWS|PRE FETCH"     for 999,999
+col CPU_PRE_EXEC            heading "CPU|PRE EXEC"       for a8
+col ELA_PRE_EXEC            heading "ELA|PRE EXEC"       for a8
+col DISK_PRE_EXEC           heading "DISK|PRE EXEC"      for a8
+col GET_PRE_EXEC            heading "GET|PRE EXEC"       for a8
+col ROWS_PRE_EXEC           heading "ROWS|PRE EXEC"      for a8
+col ROWS_PRE_FETCHES        heading "ROWS|PRE FETCH"     for a8
 col c                       heading "CHI|NUM"            for 999
 col USERNAME                heading "USER|NAME"          for a10
 col PLAN_HASH_VALUE         heading "PLAN|HASH VALUE"    for 999999999999
-col APP_WAIT_PRE            heading "APPLI(MS)|PER EXEC" for 999,999
-col CON_WAIT_PER            heading "CONCUR(MS)|PER EXEC" for 999,999
-col WRITE_PRE_EXEC          heading "WRITE|PER EXEC"     for  999,999
-col CLU_WAIT_PER            heading "CLUSTER(MS)|PER EXEC" FOR 999,999
-col USER_ID_WAIT_PER        heading "USER_IO(MS)|PER EXEC" FOR 999,999
-COL PLSQL_WAIT_PER          heading "PLSQL|PER EXEC"     FOR 999,999
-COL JAVA_WAIT_PER           heading "JAVA|PER EXEC"      FOR 999,999
+col APP_WAIT_PRE            heading "APPLI|PER EXEC" for a8
+col CON_WAIT_PER            heading "CONCUR|PER EXEC" for a8
+col WRITE_PRE_EXEC          heading "WRITE|PER EXEC"     for  a8
+col CON_PRE_EXEC            heading "CON|PRE EXEC"       for  a8
+col APP_PRE_EXEC            heading "APP|PRE EXEC"       for  a8
+col CLU_WAIT_PER            heading "CLUSTER|PER EXEC" FOR a8
+col USER_IO_WAIT_PER        heading "USER_IO|PER EXEC" FOR a8
+COL PLSQL_WAIT_PER          heading "PLSQL|PER EXEC"     FOR a8
+COL JAVA_WAIT_PER           heading "JAVA|PER EXEC"      FOR a8
 COL F_L_TIME                heading 'FIRST_LOAD_TIME|LAST_LOAD_TIME'   FOR a22
-COL SQL_PROFILE             heading 'SQL_PROFILE'        FOR a15
+COL SQL_PROFILE             heading 'SQL_PROFILE'        FOR a25
 COL END_TIME                heading 'END_TIME'           FOR a6
+col IOWAIT_PRE_EXEC         heading "IOWAIT|PER EXEC"    for a8
+col PARSE_PRE_EXEC          heading "PARSE|PER EXEC"     for a8
+col SORTS_PRE_EXEC          heading "SORTS|PER EXEC"     for a8
+col MEM_PRE_EXEC            heading "MEM|PER EXEC"       for a8
+col APP_WAIT_PRE_EXEC       heading "APP_WAIT|PER EXEC"  for a8
+col CONC_WAIT_PRE_EXEC      heading "CONC_WAIT|PER EXEC" for a8
+col CLUSTER_WAIT_PRE_EXEC   heading "CLUSTER_WAIT|PER EXEC" for a8
+col PLSQL_WAIT_PRE_EXEC     heading "PLSQL_WAIT|PER EXEC" for a8
+col JAVA_WAIT_PRE_EXEC      heading "JAVA_WAIT|PER EXEC"  for a8
 -------------------------------------------------------------------------------------------------
 col TABLE_NAME              heading "TABLE|NAME"         for a35
 col SEGMENT_NAME            heading "SEGMENT|NAME"       for a35
@@ -158,6 +182,12 @@ col COLUMN_POSITION         heading "Col|Pos"            for 999
 col degree                  heading "D"                  for a1
 col index_local             heading "LOCAL|PRE"          for a6
 -------------------------------------------------------------------------------------------------
+col file_name new_value file_name noprint;
+select '18081072613_'|| HOST_NAME||'_'||INSTANCE_NAME||'_'||
+         :sql_id_bind||'~'||'_'||to_char(sysdate,'yyyymmddhh24')||'_htz.txt' file_name
+         from v$instance
+;
+spool &file_name;
 
 -------------------------------------------------------------------------------------------------
 set pages 10000 heading on
@@ -166,27 +196,180 @@ prompt *************************************************************************
 prompt LITERAL SQL
 prompt ****************************************************************************************
 
+-- DECLARE
+--   LVC_SQL_TEXT      VARCHAR2(32000);
+--   LVC_ORIG_SQL_TEXT VARCHAR2(32000);
+--   LN_CHILD          NUMBER := 10000;
+--   LVC_BIND          VARCHAR2(200);
+--   LVC_NAME          VARCHAR2(30);
+--   CURSOR C1 IS
+--     SELECT CHILD_NUMBER, NAME, POSITION, DATATYPE_STRING, VALUE_STRING
+--       -- add
+--       ,sql_id
+--       -- add end
+--       FROM V$SQL_BIND_CAPTURE
+--      WHERE SQL_ID = :sql_id_bind
+--      ORDER BY CHILD_NUMBER, POSITION;
+-- BEGIN
+--   SELECT SQL_FULLTEXT
+--     INTO LVC_ORIG_SQL_TEXT
+--     FROM V$SQL
+--    WHERE SQL_ID = :sql_id_bind
+--      AND ROWNUM = 1;
+--   FOR R1 IN C1 LOOP
+--     IF (R1.CHILD_NUMBER <> LN_CHILD) THEN
+--       IF LN_CHILD <> 10000 THEN
+--         DBMS_OUTPUT.PUT_LINE(LVC_NAME);
+--         DBMS_OUTPUT.PUT_LINE(LVC_SQL_TEXT);
+--         DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------');
+--       END IF;
+--       LN_CHILD     := R1.CHILD_NUMBER;
+--       LVC_SQL_TEXT := LVC_ORIG_SQL_TEXT;
+--     END IF;
+
+--     -- add
+--     select parsing_schema_name into LVC_NAME from v$sql where sql_id=r1.sql_id and child_number=r1.CHILD_NUMBER;
+--     -- add end
+
+--     IF R1.NAME LIKE ':SYS_B_%' THEN
+--       LVC_BIND := ':"'||substr(R1.NAME,2)||'"';
+--     ELSE
+--       LVC_BIND := R1.NAME;
+--     END IF;
+
+
+--     IF r1.VALUE_STRING IS NOT NULL THEN
+--       IF R1.DATATYPE_STRING = 'NUMBER' THEN
+--         LVC_SQL_TEXT := REGEXP_REPLACE(LVC_SQL_TEXT, LVC_BIND, R1.VALUE_STRING,1,1,'i');
+--       ELSIF R1.DATATYPE_STRING LIKE 'VARCHAR%' THEN
+--         LVC_SQL_TEXT := REGEXP_REPLACE(LVC_SQL_TEXT, LVC_BIND, ''''||R1.VALUE_STRING||'''',1,1,'i');
+--       ELSE
+--         LVC_SQL_TEXT := REGEXP_REPLACE(LVC_SQL_TEXT, LVC_BIND, ''''||R1.VALUE_STRING||'''',1,1,'i');
+--       END IF;
+--     ELSE
+--        LVC_SQL_TEXT := REGEXP_REPLACE(LVC_SQL_TEXT, LVC_BIND, 'NULL',1,1,'i');
+--     END IF;
+--   END LOOP;
+--   DBMS_OUTPUT.PUT_LINE(LVC_NAME);
+--   DBMS_OUTPUT.PUT_LINE(LVC_SQL_TEXT);
+-- END;
+-- /
+
+
+
 DECLARE
   LVC_SQL_TEXT      VARCHAR2(32000);
   LVC_ORIG_SQL_TEXT VARCHAR2(32000);
   LN_CHILD          NUMBER := 10000;
   LVC_BIND          VARCHAR2(200);
   LVC_NAME          VARCHAR2(30);
-  CURSOR C1 IS
-    SELECT CHILD_NUMBER, NAME, POSITION, DATATYPE_STRING, VALUE_STRING
-      -- add
-      ,sql_id
-      -- add end
-      FROM V$SQL_BIND_CAPTURE
-     WHERE SQL_ID = '&&sqlid'
-     ORDER BY CHILD_NUMBER, POSITION;
+  LN_BIND_COUNT     NUMBER := 0;
+
+  FUNCTION replace_first_outside_quotes(
+    p_text        IN VARCHAR2,
+    p_pattern     IN VARCHAR2,
+    p_replacement IN VARCHAR2
+  ) RETURN VARCHAR2 IS
+    v_pos        PLS_INTEGER := 1;
+    v_len        PLS_INTEGER := NVL(LENGTH(p_text), 0);
+    v_plen       PLS_INTEGER := NVL(LENGTH(p_pattern), 0);
+    v_in_quote   BOOLEAN := FALSE;
+    v_result     VARCHAR2(32767) := '';
+    v_ch         CHAR(1);
+    v_replaced   BOOLEAN := FALSE;
+    v_next       CHAR(1);
+  BEGIN
+    IF v_len = 0 OR v_plen = 0 THEN
+      RETURN p_text;
+    END IF;
+
+    WHILE v_pos <= v_len LOOP
+      v_ch := SUBSTR(p_text, v_pos, 1);
+
+      IF v_ch = '''' THEN
+        IF v_in_quote THEN
+          -- handle doubled quote inside a literal
+          IF v_pos < v_len AND SUBSTR(p_text, v_pos + 1, 1) = '''' THEN
+            v_result := v_result || '''''';
+            v_pos := v_pos + 2;
+            CONTINUE;
+          ELSE
+            v_in_quote := FALSE;
+            v_result := v_result || v_ch;
+            v_pos := v_pos + 1;
+            CONTINUE;
+          END IF;
+        ELSE
+          v_in_quote := TRUE;
+          v_result := v_result || v_ch;
+          v_pos := v_pos + 1;
+          CONTINUE;
+        END IF;
+      END IF;
+
+      IF NOT v_in_quote AND NOT v_replaced AND v_pos + v_plen - 1 <= v_len THEN
+        IF UPPER(SUBSTR(p_text, v_pos, v_plen)) = UPPER(p_pattern) THEN
+          -- avoid partial match like ':1' within ':10'
+          v_next := CASE WHEN v_pos + v_plen <= v_len THEN SUBSTR(p_text, v_pos + v_plen, 1) ELSE NULL END;
+          IF p_pattern LIKE ':%' THEN
+            IF v_next IS NULL OR v_next NOT BETWEEN '0' AND '9' THEN
+              v_result := v_result || p_replacement || SUBSTR(p_text, v_pos + v_plen);
+              RETURN v_result;
+            END IF;
+          ELSE
+            v_result := v_result || p_replacement || SUBSTR(p_text, v_pos + v_plen);
+            RETURN v_result;
+          END IF;
+        END IF;
+      END IF;
+
+      v_result := v_result || v_ch;
+      v_pos := v_pos + 1;
+    END LOOP;
+
+    RETURN v_result;
+  END replace_first_outside_quotes;
 BEGIN
+
   SELECT SQL_FULLTEXT
     INTO LVC_ORIG_SQL_TEXT
     FROM V$SQL
-   WHERE SQL_ID = '&&sqlid'
+   WHERE SQL_ID = :sql_id_bind
      AND ROWNUM = 1;
-  FOR R1 IN C1 LOOP
+
+  SELECT parsing_schema_name
+    INTO LVC_NAME
+    FROM v$sql
+   WHERE sql_id = :sql_id_bind
+     AND ROWNUM = 1;
+
+
+  SELECT COUNT(*)
+    INTO LN_BIND_COUNT
+    FROM V$SQL_BIND_CAPTURE
+   WHERE SQL_ID = :sql_id_bind;
+
+
+  IF LN_BIND_COUNT = 0 THEN
+    DBMS_OUTPUT.PUT_LINE('Schema: ' || LVC_NAME);
+    DBMS_OUTPUT.PUT_LINE(LVC_ORIG_SQL_TEXT);
+    DBMS_OUTPUT.PUT_LINE('--------------------------------------------------------');
+    RETURN;
+  END IF;
+
+
+  FOR R1 IN (
+    SELECT CHILD_NUMBER, NAME, POSITION, DATATYPE_STRING,
+           CASE
+             WHEN DATATYPE_STRING LIKE 'TIMESTAMP%' AND VALUE_STRING IS NULL THEN
+               TO_CHAR(anydata.accesstimestamp(value_anydata), 'YYYY-MM-DD HH24:MI:SS')
+             ELSE VALUE_STRING
+           END AS VALUE_STRING,
+           sql_id
+      FROM V$SQL_BIND_CAPTURE
+     WHERE SQL_ID = :sql_id_bind
+     ORDER BY CHILD_NUMBER, POSITION
+  ) LOOP
     IF (R1.CHILD_NUMBER <> LN_CHILD) THEN
       IF LN_CHILD <> 10000 THEN
         DBMS_OUTPUT.PUT_LINE(LVC_NAME);
@@ -207,38 +390,25 @@ BEGIN
       LVC_BIND := R1.NAME;
     END IF;
 
-
     IF r1.VALUE_STRING IS NOT NULL THEN
       IF R1.DATATYPE_STRING = 'NUMBER' THEN
-        LVC_SQL_TEXT := REGEXP_REPLACE(LVC_SQL_TEXT, LVC_BIND, R1.VALUE_STRING,1,1,'i');
+        LVC_SQL_TEXT := replace_first_outside_quotes(LVC_SQL_TEXT, LVC_BIND, R1.VALUE_STRING);
       ELSIF R1.DATATYPE_STRING LIKE 'VARCHAR%' THEN
-        LVC_SQL_TEXT := REGEXP_REPLACE(LVC_SQL_TEXT, LVC_BIND, ''''||R1.VALUE_STRING||'''',1,1,'i');
+        LVC_SQL_TEXT := replace_first_outside_quotes(LVC_SQL_TEXT, LVC_BIND, ''''||R1.VALUE_STRING||'''');
       ELSE
-        LVC_SQL_TEXT := REGEXP_REPLACE(LVC_SQL_TEXT, LVC_BIND, ''''||R1.VALUE_STRING||'''',1,1,'i');
+        LVC_SQL_TEXT := replace_first_outside_quotes(LVC_SQL_TEXT, LVC_BIND, ''''||R1.VALUE_STRING||'''');
       END IF;
     ELSE
-       LVC_SQL_TEXT := REGEXP_REPLACE(LVC_SQL_TEXT, LVC_BIND, 'NULL',1,1,'i');
+       LVC_SQL_TEXT := replace_first_outside_quotes(LVC_SQL_TEXT, LVC_BIND, 'NULL');
     END IF;
   END LOOP;
+
+
   DBMS_OUTPUT.PUT_LINE(LVC_NAME);
   DBMS_OUTPUT.PUT_LINE(LVC_SQL_TEXT);
 END;
 /
--- ==========================================================================================
---set heading off
---spool tmp.sql
---SELECT 'select * from table(dbms_xplan.display_cursor(''&&sqlid'','||CHILD_NUMBER||'));' FROM (
---  SELECT CHILD_NUMBER,ROW_NUMBER() OVER(PARTITION BY PLAN_HASH_VALUE ORDER BY CHILD_NUMBER) rn
---  FROM V$SQL WHERE SQL_ID = '&&sqlid'
---) WHERE rn=1;
---spool off
---set heading on
--- ==========================================================================================
--- prompt
--- prompt ****************************************************************************************
--- prompt AWR
--- prompt ****************************************************************************************
--- select * from table(dbms_xplan.display_awr('&&sqlid',null,null,'advanced allstats last'));
+
 
 prompt ****************************************************************************************
 prompt CURSOR
@@ -247,7 +417,7 @@ prompt *************************************************************************
 select t.*
   from v$sql s,
        table(dbms_xplan.display_cursor(s.sql_id, s.child_number)) t
- where s.sql_id = '&&sqlid';
+ where s.sql_id = :sql_id_bind;
 
 prompt ****************************************************************************************
 prompt PLAN STAT FROM ASH
@@ -279,7 +449,7 @@ prompt *************************************************************************
 &_VERSION_11                              PLAN_HASH_VALUE,
 &_VERSION_11                              '' FORMAT
 &_VERSION_11                         FROM v$sql
-&_VERSION_11                        WHERE sql_id = '&&sqlid'),
+&_VERSION_11                        WHERE sql_id = :sql_id_bind),
 &_VERSION_11                   htz_pw
 &_VERSION_11                   AS (SELECT t.*,
 &_VERSION_11                              ROW_NUMBER ()
@@ -314,7 +484,7 @@ prompt *************************************************************************
 &_VERSION_11                                                   EVENT)
 &_VERSION_11                                                   EVENT
 &_VERSION_11                                           FROM v$active_session_history a
-&_VERSION_11                                          WHERE a.sql_id = '&&sqlid')
+&_VERSION_11                                          WHERE a.sql_id = :sql_id_bind)
 &_VERSION_11                               GROUP BY sql_id,
 &_VERSION_11                                        sql_child_number,
 &_VERSION_11                                        sql_plan_line_id,
@@ -400,21 +570,32 @@ prompt *************************************************************************
  END;
  /
 
+
+prompt
+prompt ****************************************************************************************
+prompt AWR
+prompt ****************************************************************************************
+
+SELECT t.*
+FROM dba_hist_sqlstat h,
+     table(dbms_xplan.display_awr(h.sql_id, h.plan_hash_value)) t
+WHERE h.sql_id = :sql_id_bind
+  AND NOT EXISTS (
+    SELECT 1 FROM v$sql s2 WHERE s2.sql_id = h.sql_id
+  );
+
 prompt
 prompt ****************************************************************************************
 prompt SQL MONITOR
 prompt ****************************************************************************************
 
---SELECT
---&_VERSION_11   &_SQL_MONITOR   DBMS_SQLTUNE.report_sql_monitor(sql_id       => '&&sqlid',
---&_VERSION_11   &_SQL_MONITOR                                   type         => 'TEXT',
---&_VERSION_11   &_SQL_MONITOR                                   report_level => 'NONE+PLAN+ACTIVITY-SQL_FULLTEXT-SQL_TEXT-SESSIONS-OTHER') AS report
---FROM dual
+SELECT
+&_VERSION_11  DBMS_SQLTUNE.report_sql_monitor(sql_id       => :sql_id_bind,
+&_VERSION_11                                  type         => 'TEXT',
+&_VERSION_11                                  report_level => 'NONE+PLAN+ACTIVITY-SQL_FULLTEXT-SQL_TEXT-SESSIONS-OTHER') AS report
+FROM dual;
 
-prompt
-prompt ****************************************************************************************
-prompt SQL STATS
-prompt ****************************************************************************************
+
 
 
 PROMPT
@@ -423,21 +604,112 @@ PROMPT | infromation  from v$sqlstats               |
 PROMPT +------------------------------------------------------------------------+
 PROMPT
 
-SELECT trim(EXECUTIONS) EXECUTIONS,
-       (CPU_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS))/1000 CPU_PRE_EXEC,
-       (ELAPSED_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS))/1000 ELA_PRE_EXEC,
-       DISK_READS / DECODE (EXECUTIONS, 0, 1, EXECUTIONS) DISK_PRE_EXEC,
-       BUFFER_GETS / DECODE (EXECUTIONS, 0, 1, EXECUTIONS) GET_PRE_EXEC,
-       ROWS_PROCESSED / DECODE (EXECUTIONS, 0, 1, EXECUTIONS) ROWS_PRE_EXEC,
-       ROWS_PROCESSED / DECODE (FETCHES, 0, 1, FETCHES) ROWS_PRE_FETCHES,
-       (APPLICATION_WAIT_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS))/1000 APP_WAIT_PRE,
-       (CONCURRENCY_WAIT_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS))/1000 CON_WAIT_PER,
-       (CLUSTER_WAIT_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS))/1000 CLU_WAIT_PER,
-       (USER_IO_WAIT_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS))/1000 USER_ID_WAIT_PER,
-       PLSQL_EXEC_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS) PLSQL_WAIT_PER,
-       JAVA_EXEC_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS) JAVA_WAIT_PER,SQL_PROFILE
+SELECT CASE
+        WHEN EXECUTIONS < 1000 THEN TO_CHAR(EXECUTIONS)
+        WHEN EXECUTIONS < 10000 THEN TO_CHAR(ROUND(EXECUTIONS / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(EXECUTIONS / 10000, 2)) || 'W'
+        END AS EXECUTIONS,
+       CASE
+        WHEN CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+        END AS CPU_PRE_EXEC,
+       CASE
+        WHEN ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+        END AS ELA_PRE_EXEC,
+       CASE
+        WHEN DISK_READS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) < 1000
+            THEN TO_CHAR(ROUND(DISK_READS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS),2))
+        WHEN DISK_READS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) < 10000
+            THEN TO_CHAR(ROUND(DISK_READS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(DISK_READS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 10000, 2)) || 'W'
+        END AS DISK_PRE_EXEC,
+       CASE
+        WHEN BUFFER_GETS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) < 1000
+            THEN TO_CHAR(ROUND(BUFFER_GETS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS),2))
+        WHEN BUFFER_GETS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) < 10000
+            THEN TO_CHAR(ROUND(BUFFER_GETS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(BUFFER_GETS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 10000, 2)) || 'W'
+    END AS GET_PRE_EXEC,
+       CASE
+        WHEN ROWS_PROCESSED / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) < 1000
+            THEN TO_CHAR(ROUND(ROWS_PROCESSED / DECODE(EXECUTIONS, 0, 1, EXECUTIONS),2))
+        WHEN ROWS_PROCESSED / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) < 10000
+            THEN TO_CHAR(ROUND(ROWS_PROCESSED / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(ROWS_PROCESSED / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 10000, 2)) || 'W'
+    END AS ROWS_PRE_EXEC,
+       CASE
+        WHEN fetches/ DECODE(executions, 0, 1, executions) < 1000 THEN TO_CHAR(ROUND(fetches / DECODE(executions, 0, 1, executions),2))
+        WHEN fetches / DECODE(executions, 0, 1, executions) < 10000 THEN TO_CHAR(ROUND(fetches / DECODE(executions, 0, 1, executions) / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(fetches / DECODE(executions, 0, 1, executions) / 10000, 2)) || 'W'
+        END AS ROWS_PRE_FETCHES,
+      CASE
+        WHEN APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS APP_WAIT_PRE,
+        CASE
+        WHEN CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS CON_WAIT_PER,
+         case
+               WHEN CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS CLU_WAIT_PER,
+               CASE
+        WHEN USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS USER_IO_WAIT_PER,
+               CASE
+        WHEN PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS PLSQL_WAIT_PER,
+               CASE
+        WHEN JAVA_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(JAVA_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN JAVA_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(JAVA_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(JAVA_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(JAVA_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS JAVA_WAIT_PER,
+    SQL_PROFILE
   FROM v$sqlarea
-where sql_id = '&&sqlid';
+where sql_id = :sql_id_bind;
 
 PROMPT
 PROMPT +------------------------------------------------------------------------+
@@ -445,27 +717,122 @@ PROMPT | information from v$sql                 |
 PROMPT +------------------------------------------------------------------------+
 PROMPT
 
-SELECT trim(EXECUTIONS) EXECUTIONS,
-       plan_hash_value,
-       child_number c,
-       PARSING_SCHEMA_NAME username,
-       (CPU_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS))/1000 CPU_PRE_EXEC,
-       (ELAPSED_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS))/1000 ELA_PRE_EXEC,
-       DISK_READS / DECODE (EXECUTIONS, 0, 1, EXECUTIONS) DISK_PRE_EXEC,
-       BUFFER_GETS / DECODE (EXECUTIONS, 0, 1, EXECUTIONS) GET_PRE_EXEC,
-       ROWS_PROCESSED / DECODE (EXECUTIONS, 0, 1, EXECUTIONS) ROWS_PRE_EXEC,
-       ROWS_PROCESSED / DECODE (FETCHES, 0, 1, FETCHES) ROWS_PRE_FETCHES,
-       (APPLICATION_WAIT_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS))/1000 APP_WAIT_PRE,
-       (CONCURRENCY_WAIT_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS))/1000 CON_WAIT_PER,
-       (CLUSTER_WAIT_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS))/1000 CLU_WAIT_PER,
-       (USER_IO_WAIT_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS))/1000 USER_ID_WAIT_PER,
---       PLSQL_EXEC_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS) PLSQL_WAIT_PER,
---       JAVA_EXEC_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS) JAVA_WAIT_PER,
-       substr(FIRST_LOAD_TIME,6,10)||'.'||substr(LAST_LOAD_TIME,6,10) f_l_time
---       ,sql_profile
-  from v$sql
- where sql_id = '&&sqlid'
- order by 3;
+SELECT
+    CASE
+        WHEN EXECUTIONS < 1000 THEN TO_CHAR(EXECUTIONS)
+        WHEN EXECUTIONS < 10000 THEN TO_CHAR(ROUND(EXECUTIONS / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(EXECUTIONS / 10000, 2)) || 'W'
+    END AS EXECUTIONS,
+    plan_hash_value,
+    child_number AS c,
+    PARSING_SCHEMA_NAME AS username,
+      CASE
+        WHEN CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS CPU_PRE_EXEC,
+    CASE
+        WHEN ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS ELA_PRE_EXEC,
+    CASE
+        WHEN DISK_READS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) < 1000
+            THEN TO_CHAR(ROUND(DISK_READS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS),2))
+        WHEN DISK_READS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) < 10000
+            THEN TO_CHAR(ROUND(DISK_READS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(DISK_READS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 10000, 2)) || 'W'
+    END AS DISK_PRE_EXEC,
+    CASE
+        WHEN BUFFER_GETS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) < 1000
+            THEN TO_CHAR(ROUND(BUFFER_GETS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS),2))
+        WHEN BUFFER_GETS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) < 10000
+            THEN TO_CHAR(ROUND(BUFFER_GETS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(BUFFER_GETS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 10000, 2)) || 'W'
+    END AS GET_PRE_EXEC,
+    CASE
+        WHEN ROWS_PROCESSED / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) < 1000
+            THEN TO_CHAR(ROUND(ROWS_PROCESSED / DECODE(EXECUTIONS, 0, 1, EXECUTIONS),2))
+        WHEN ROWS_PROCESSED / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) < 10000
+            THEN TO_CHAR(ROUND(ROWS_PROCESSED / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(ROWS_PROCESSED / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 10000, 2)) || 'W'
+    END AS ROWS_PRE_EXEC,
+    CASE
+        WHEN ROWS_PROCESSED / DECODE(FETCHES, 0, 1, FETCHES) < 1000
+            THEN TO_CHAR(ROUND(ROWS_PROCESSED / DECODE(FETCHES, 0, 1, FETCHES),2))
+        WHEN ROWS_PROCESSED / DECODE(FETCHES, 0, 1, FETCHES) < 10000
+            THEN TO_CHAR(ROUND(ROWS_PROCESSED / DECODE(FETCHES, 0, 1, FETCHES) / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(ROWS_PROCESSED / DECODE(FETCHES, 0, 1, FETCHES) / 10000, 2)) || 'W'
+    END AS ROWS_PRE_FETCHES,
+  CASE
+        WHEN APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS APP_PRE_EXEC,
+        CASE
+        WHEN CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS CON_PRE_EXEC,
+        CASE
+        WHEN CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS CLU_WAIT_PER,
+        CASE
+        WHEN USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS USER_IO_WAIT_PER,
+        CASE
+        WHEN PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS PLSQL_WAIT_PER,
+        CASE
+        WHEN JAVA_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(JAVA_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN JAVA_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(JAVA_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(JAVA_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(JAVA_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS JAVA_WAIT_PER,
+    SUBSTR(FIRST_LOAD_TIME, 6, 10) || '.' || SUBSTR(LAST_LOAD_TIME, 6, 10) AS f_l_time
+FROM v$sql s
+WHERE sql_id = :sql_id_bind
+ORDER BY plan_hash_value;
+
+
+
 PROMPT
 PROMPT +------------------------------------------------------------------------+
 PROMPT | information from awr   sysdate-7                                       |
@@ -475,76 +842,96 @@ PROMPT
          TRIM (a.instance_number) instance_number,
          a.parsing_schema_name,
          a.plan_hash_value,
-         CASE
-            WHEN a.executions_delta < 1000
-            THEN
-               SUBSTR (a.executions_delta, 1, 4)
-            WHEN a.executions_delta BETWEEN 1000 AND 10000
-            THEN
-               SUBSTR (a.executions_delta / 1000, 1, 3) || 'K'
-            WHEN a.executions_delta > 10000
-            THEN
-               SUBSTR (a.executions_delta / 10000, 1, 3) || 'W'
-         END
-            executions,
-         TRUNC (
-              (buffer_gets_delta)
-            / DECODE ( (executions_delta), 0, 1, (executions_delta)))
-            GET_PRE_EXEC,
-         TRUNC (
-              (disk_reads_delta)
-            / DECODE ( (executions_delta), 0, 1, (executions_delta)))
-            DISK_PRE_EXEC,
-         TRUNC (
-              (direct_writes_delta)
-            / DECODE ( (executions_delta), 0, 1, (executions_delta)))
-            WRITE_PRE_EXEC,
-         CASE
-            WHEN rows_processed_delta < 1000
-            THEN
-               SUBSTR (rows_processed_delta, 1, 4)
-            WHEN rows_processed_delta BETWEEN 1000 AND 10000
-            THEN
-               SUBSTR (rows_processed_delta / 1000, 1, 3) || 'K'
-            WHEN rows_processed_delta > 10000
-            THEN
-               SUBSTR (rows_processed_delta / 10000, 1, 3) || 'W'
-         END
-            row_processes,
-         TRUNC (
-              (rows_processed_delta)
-            / DECODE ( (executions_delta), 0, 1, (executions_delta)))
-            ROWS_PRE_EXEC,
-         TRUNC (
-              (fetches_delta)
-            / DECODE ( (executions_delta), 0, 1, (executions_delta)))
-            ROWS_PRE_FETCHES,
-         TRUNC (
-              (IOWAIT_DELTA)
-            / DECODE ( (executions_delta), 0, 1, (executions_delta)))
-            USER_ID_WAIT_PER,
-         TRUNC (
-            (  (elapsed_time_delta)
-             / DECODE ( (executions_delta), 0, 1, (executions_delta))),
-            1000)
-            ELA_PRE_EXEC,
-         TRUNC (
-            (  (cpu_time_delta)
-             / DECODE ( (executions_delta), 0, 1, (executions_delta))),
-            1000)
-            CPU_PRE_EXEC,
-         TRUNC (
-            (  (CLWAIT_DELTA)
-             / DECODE ( (executions_delta), 0, 1, (executions_delta))),
-            1000)
-            CLU_WAIT_PER,
-         TRUNC (
-            (  (PLSEXEC_TIME_DELTA)
-             / DECODE ( (executions_delta), 0, 1, (executions_delta))),
-            1000)
-            PLSQL_WAIT_PER
+      CASE
+        WHEN executions_delta < 1000 THEN TO_CHAR(executions_delta)
+        WHEN executions_delta < 10000 THEN TO_CHAR(ROUND(executions_delta / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(executions_delta / 10000, 2)) || 'W'
+    END AS EXECUTIONS,
+    CASE
+        WHEN cpu_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 < 1000 THEN ROUND(cpu_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000, 2) || 'ms'
+        WHEN cpu_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 < 60 THEN ROUND(cpu_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60, 2) || 's'
+        WHEN cpu_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60 < 60 THEN ROUND(cpu_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(cpu_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS CPU_PRE_EXEC,
+    CASE
+        WHEN elapsed_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 < 1000 THEN ROUND(elapsed_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000, 2) || 'ms'
+        WHEN elapsed_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 < 60 THEN ROUND(elapsed_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60, 2) || 's'
+        WHEN elapsed_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60 < 60 THEN ROUND(elapsed_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(elapsed_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS ELA_PRE_EXEC,
+    CASE
+        WHEN disk_reads_delta / DECODE(executions_delta, 0, 1, executions_delta) < 1000 THEN TO_CHAR(ROUND(disk_reads_delta / DECODE(executions_delta, 0, 1, executions_delta),2))
+        WHEN disk_reads_delta / DECODE(executions_delta, 0, 1, executions_delta) < 10000 THEN TO_CHAR(ROUND(disk_reads_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(disk_reads_delta / DECODE(executions_delta, 0, 1, executions_delta) / 10000, 2)) || 'W'
+    END AS DISK_PRE_EXEC,
+        CASE
+        WHEN BUFFER_GETS_DELTA / DECODE(executions_delta, 0, 1, executions_delta) < 1000 THEN TO_CHAR(ROUND(BUFFER_GETS_DELTA / DECODE(executions_delta, 0, 1, executions_delta),2))
+        WHEN BUFFER_GETS_DELTA / DECODE(executions_delta, 0, 1, executions_delta) < 10000 THEN TO_CHAR(ROUND(BUFFER_GETS_DELTA / DECODE(executions_delta, 0, 1, executions_delta) / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(BUFFER_GETS_DELTA / DECODE(executions_delta, 0, 1, executions_delta) / 10000, 2)) || 'W'
+    END AS GET_PRE_EXEC,
+    CASE
+        WHEN rows_processed_delta / DECODE(executions_delta, 0, 1, executions_delta) < 1000 THEN TO_CHAR(ROUND(rows_processed_delta / DECODE(executions_delta, 0, 1, executions_delta),2))
+        WHEN rows_processed_delta / DECODE(executions_delta, 0, 1, executions_delta) < 10000 THEN TO_CHAR(ROUND(rows_processed_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(rows_processed_delta / DECODE(executions_delta, 0, 1, executions_delta) / 10000, 2)) || 'W'
+    END AS ROWS_PRE_EXEC,
+    CASE
+        WHEN fetches_delta / DECODE(executions_delta, 0, 1, executions_delta) < 1000 THEN TO_CHAR(ROUND(fetches_delta / DECODE(executions_delta, 0, 1, executions_delta),2))
+        WHEN fetches_delta / DECODE(executions_delta, 0, 1, executions_delta) < 10000 THEN TO_CHAR(ROUND(fetches_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(fetches_delta / DECODE(executions_delta, 0, 1, executions_delta) / 10000, 2)) || 'W'
+    END AS ROWS_PRE_FETCHES,
+    CASE
+        WHEN direct_writes_delta / DECODE(executions_delta, 0, 1, executions_delta) < 1000 THEN TO_CHAR(ROUND(direct_writes_delta / DECODE(executions_delta, 0, 1, executions_delta),2))
+        WHEN direct_writes_delta / DECODE(executions_delta, 0, 1, executions_delta) < 10000 THEN TO_CHAR(ROUND(direct_writes_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(direct_writes_delta / DECODE(executions_delta, 0, 1, executions_delta) / 10000, 2)) || 'W'
+    END AS WRITE_PRE_EXEC,
+    CASE
+        WHEN IOWAIT_DELTA / DECODE(executions_delta, 0, 1, executions_delta) / 1000 < 1000 THEN ROUND(IOWAIT_DELTA / DECODE(executions_delta, 0, 1, executions_delta) / 1000, 2) || 'ms'
+        WHEN IOWAIT_DELTA / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 < 60 THEN ROUND(IOWAIT_DELTA / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60, 2) || 's'
+        WHEN IOWAIT_DELTA / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60 < 60 THEN ROUND(IOWAIT_DELTA / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(IOWAIT_DELTA / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS IOWAIT_PRE_EXEC,
+    CASE
+        WHEN parse_calls_delta / DECODE(executions_delta, 0, 1, executions_delta) < 1000 THEN TO_CHAR(ROUND(parse_calls_delta / DECODE(executions_delta, 0, 1, executions_delta),2))
+        WHEN parse_calls_delta / DECODE(executions_delta, 0, 1, executions_delta) < 10000 THEN TO_CHAR(ROUND(parse_calls_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(parse_calls_delta / DECODE(executions_delta, 0, 1, executions_delta) / 10000, 2)) || 'W'
+    END AS PARSE_PRE_EXEC,
+    CASE
+        WHEN sorts_delta / DECODE(executions_delta, 0, 1, executions_delta) < 1000 THEN TO_CHAR(ROUND(sorts_delta / DECODE(executions_delta, 0, 1, executions_delta),2))
+        WHEN sorts_delta / DECODE(executions_delta, 0, 1, executions_delta) < 10000 THEN TO_CHAR(ROUND(sorts_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(sorts_delta / DECODE(executions_delta, 0, 1, executions_delta) / 10000, 2)) || 'W'
+    END AS SORTS_PRE_EXEC,
+    CASE
+        WHEN apwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 < 1000 THEN ROUND(apwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000, 2) || 'ms'
+        WHEN apwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 < 60 THEN ROUND(apwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60, 2) || 's'
+        WHEN apwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60 < 60 THEN ROUND(apwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(apwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS APP_WAIT_PRE_EXEC,
+    CASE
+        WHEN ccwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 < 1000 THEN ROUND(ccwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000, 2) || 'ms'
+        WHEN ccwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 < 60 THEN ROUND(ccwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60, 2) || 's'
+        WHEN ccwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60 < 60 THEN ROUND(ccwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(ccwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS CONC_WAIT_PRE_EXEC,
+    CASE
+        WHEN clwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 < 1000 THEN ROUND(clwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000, 2) || 'ms'
+        WHEN clwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 < 60 THEN ROUND(clwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60, 2) || 's'
+        WHEN clwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60 < 60 THEN ROUND(clwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(clwait_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS CLUSTER_WAIT_PRE_EXEC,
+    CASE
+        WHEN plsexec_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 < 1000 THEN ROUND(plsexec_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000, 2) || 'ms'
+        WHEN plsexec_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 < 60 THEN ROUND(plsexec_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60, 2) || 's'
+        WHEN plsexec_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60 < 60 THEN ROUND(plsexec_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(plsexec_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS PLSQL_WAIT_PRE_EXEC,
+    CASE
+        WHEN javexec_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 < 1000 THEN ROUND(javexec_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000, 2) || 'ms'
+        WHEN javexec_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 < 60 THEN ROUND(javexec_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60, 2) || 's'
+        WHEN javexec_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60 < 60 THEN ROUND(javexec_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(javexec_time_delta / DECODE(executions_delta, 0, 1, executions_delta) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS JAVA_WAIT_PRE_EXEC
     FROM dba_hist_sqlstat a, dba_hist_snapshot b
-   WHERE     a.sql_id = '&&sqlid'
+   WHERE     a.sql_id = :sql_id_bind
          AND a.snap_id = b.snap_id
          AND b.END_INTERVAL_TIME > SYSDATE - 5
          AND a.instance_number = b.instance_number
@@ -576,7 +963,7 @@ SELECT substr(PROGRAM,1,30) PROGRAM,EVENT, SUM(CNT) TOTAL, WAIT_CLASS
                PROGRAM,
                1 CNT
           FROM V$ACTIVE_SESSION_HISTORY
-         WHERE SQL_ID = '&&sqlid'
+         WHERE SQL_ID = :sql_id_bind
            AND SAMPLE_TIME >= SYSDATE - 4 / 24
            AND SAMPLE_TIME <= SYSDATE)
  GROUP BY EVENT, WAIT_CLASS, PROGRAM
@@ -593,11 +980,11 @@ break on owner on segment_name
 --                DISTINCT OBJECT_OWNER, OBJECT_NAME
 --           FROM (SELECT OBJECT_OWNER, OBJECT_NAME
 --                   FROM V$SQL_PLAN
---                  WHERE SQL_ID = '&&sqlid' AND OBJECT_NAME IS NOT NULL
+--                  WHERE SQL_ID = :sql_id_bind AND OBJECT_NAME IS NOT NULL
 --                 UNION ALL
 --                 SELECT OBJECT_OWNER, OBJECT_NAME
 --                   FROM DBA_HIST_SQL_PLAN
---                  WHERE SQL_ID = '&&sqlid' AND OBJECT_NAME IS NOT NULL)),
+--                  WHERE SQL_ID = :sql_id_bind AND OBJECT_NAME IS NOT NULL)),
 --     tt
 --     AS (SELECT /*+materialize  no_merge */
 --                DISTINCT table_owner, table_name
@@ -688,11 +1075,11 @@ WITH t
                 DISTINCT OBJECT_OWNER, OBJECT_NAME
            FROM (SELECT OBJECT_OWNER, OBJECT_NAME
                    FROM V$SQL_PLAN
-                  WHERE SQL_ID = '&&sqlid' AND OBJECT_NAME IS NOT NULL
+                  WHERE SQL_ID = :sql_id_bind AND OBJECT_NAME IS NOT NULL
                  UNION ALL
                  SELECT OBJECT_OWNER, OBJECT_NAME
                    FROM DBA_HIST_SQL_PLAN
-                  WHERE SQL_ID = '&&sqlid' AND OBJECT_NAME IS NOT NULL)),
+                  WHERE SQL_ID = :sql_id_bind AND OBJECT_NAME IS NOT NULL)),
      tt
      AS (SELECT /*+materialize  no_merge */
                 DISTINCT table_owner, table_name
@@ -786,11 +1173,11 @@ WITH t
                DISTINCT OBJECT_OWNER, OBJECT_NAME
            FROM (SELECT OBJECT_OWNER, OBJECT_NAME
                    FROM V$SQL_PLAN
-                  WHERE SQL_ID = '&&sqlid' AND OBJECT_NAME IS NOT NULL
+                  WHERE SQL_ID = :sql_id_bind AND OBJECT_NAME IS NOT NULL
                  UNION ALL
                  SELECT OBJECT_OWNER, OBJECT_NAME
                    FROM DBA_HIST_SQL_PLAN
-                  WHERE SQL_ID = '&&sqlid' AND OBJECT_NAME IS NOT NULL))
+                  WHERE SQL_ID = :sql_id_bind AND OBJECT_NAME IS NOT NULL))
   SELECT a.owner,
          a.TABLE_NAME,
          -- TABLESPACE_NAME,
@@ -829,19 +1216,19 @@ prompt *************************************************************************
 break on owner on table_name
 
 col column_id for 999 heading 'Col|Id'
-col d_type for a15 heading 'Column|Date Type'
+col d_type for a18 heading 'Column|Date Type'
 col num_distinct for 9999999 heading 'NUM|DISTINCT'
 col num_buckets for 9999 heading 'BUCK'
 WITH t AS
 (SELECT /*+ materialize */DISTINCT OBJECT_OWNER, OBJECT_NAME
           FROM (SELECT OBJECT_OWNER, OBJECT_NAME
                   FROM V$SQL_PLAN
-                 WHERE SQL_ID = '&&sqlid'
+                 WHERE SQL_ID = :sql_id_bind
                    AND OBJECT_NAME IS NOT NULL
                 UNION ALL
                 SELECT OBJECT_OWNER, OBJECT_NAME
                   FROM DBA_HIST_SQL_PLAN
-                 WHERE SQL_ID = '&&sqlid'
+                 WHERE SQL_ID = :sql_id_bind
                    AND OBJECT_NAME IS NOT NULL))
 SELECT OWNER,
        TABLE_NAME,
@@ -873,11 +1260,11 @@ WITH t
                 DISTINCT OBJECT_OWNER, OBJECT_NAME
            FROM (SELECT OBJECT_OWNER, OBJECT_NAME
                    FROM V$SQL_PLAN
-                  WHERE SQL_ID = '&&sqlid' AND OBJECT_NAME IS NOT NULL
+                  WHERE SQL_ID = :sql_id_bind AND OBJECT_NAME IS NOT NULL
                  UNION ALL
                  SELECT OBJECT_OWNER, OBJECT_NAME
                    FROM DBA_HIST_SQL_PLAN
-                  WHERE SQL_ID = '&&sqlid' AND OBJECT_NAME IS NOT NULL)),
+                  WHERE SQL_ID = :sql_id_bind AND OBJECT_NAME IS NOT NULL)),
      tt
      AS (SELECT /*+ materialize */
                i.OWNER,
@@ -935,12 +1322,12 @@ break on table_owner on table_name on index_name on ucpt
 --(SELECT /*+ materialize */DISTINCT OBJECT_OWNER, OBJECT_NAME
 --          FROM (SELECT OBJECT_OWNER, OBJECT_NAME
 --                  FROM V$SQL_PLAN
---                 WHERE SQL_ID = '&&sqlid'
+--                 WHERE SQL_ID = :sql_id_bind
 --                   AND OBJECT_NAME IS NOT NULL
 --                UNION ALL
 --                SELECT OBJECT_OWNER, OBJECT_NAME
 --                  FROM DBA_HIST_SQL_PLAN
---                 WHERE SQL_ID = '&&sqlid'
+--                 WHERE SQL_ID = :sql_id_bind
 --                   AND OBJECT_NAME IS NOT NULL))
 --SELECT A.TABLE_OWNER,
 --       A.TABLE_NAME,
@@ -963,11 +1350,11 @@ break on table_owner on table_name on index_name on ucpt
                                DISTINCT OBJECT_OWNER, OBJECT_NAME
                           FROM (SELECT OBJECT_OWNER, OBJECT_NAME
                                   FROM V$SQL_PLAN
-                                 WHERE SQL_ID = '&&sqlid' AND OBJECT_NAME IS NOT NULL
+                                 WHERE SQL_ID = :sql_id_bind AND OBJECT_NAME IS NOT NULL
                                 UNION ALL
                                 SELECT OBJECT_OWNER, OBJECT_NAME
                                   FROM DBA_HIST_SQL_PLAN
-                                 WHERE SQL_ID = '&&sqlid' AND OBJECT_NAME IS NOT NULL))
+                                 WHERE SQL_ID = :sql_id_bind AND OBJECT_NAME IS NOT NULL))
                  SELECT A.TABLE_OWNER,
                         A.TABLE_NAME,
                         A.INDEX_NAME,
@@ -1010,11 +1397,11 @@ WITH t
                 DISTINCT OBJECT_OWNER, OBJECT_NAME
            FROM (SELECT OBJECT_OWNER, OBJECT_NAME
                    FROM V$SQL_PLAN
-                  WHERE SQL_ID = '&&sqlid' AND OBJECT_NAME IS NOT NULL
+                  WHERE SQL_ID = :sql_id_bind AND OBJECT_NAME IS NOT NULL
                  UNION ALL
                  SELECT OBJECT_OWNER, OBJECT_NAME
                    FROM DBA_HIST_SQL_PLAN
-                  WHERE SQL_ID = '&&sqlid' AND OBJECT_NAME IS NOT NULL))
+                  WHERE SQL_ID = :sql_id_bind AND OBJECT_NAME IS NOT NULL))
   SELECT a.owner,
          a.name index_name,
          b.partitioning_type,
@@ -1075,11 +1462,11 @@ WITH t
                 DISTINCT OBJECT_OWNER, OBJECT_NAME
            FROM (SELECT OBJECT_OWNER, OBJECT_NAME
                    FROM V$SQL_PLAN
-                  WHERE SQL_ID = '&&sqlid' AND OBJECT_NAME IS NOT NULL
+                  WHERE SQL_ID = :sql_id_bind AND OBJECT_NAME IS NOT NULL
                  UNION ALL
                  SELECT OBJECT_OWNER, OBJECT_NAME
                    FROM DBA_HIST_SQL_PLAN
-                  WHERE SQL_ID = '&&sqlid' AND OBJECT_NAME IS NOT NULL))
+                  WHERE SQL_ID = :sql_id_bind AND OBJECT_NAME IS NOT NULL))
   SELECT t.OWNER,
          t.table_name,
          t.INDEX_NAME,
@@ -1118,12 +1505,12 @@ WITH t AS
 (SELECT /*+ materialize */DISTINCT OBJECT_OWNER, OBJECT_NAME
           FROM (SELECT OBJECT_OWNER, OBJECT_NAME
                   FROM V$SQL_PLAN
-                 WHERE SQL_ID = '&&sqlid'
+                 WHERE SQL_ID = :sql_id_bind
                    AND OBJECT_NAME IS NOT NULL
                 UNION ALL
                 SELECT OBJECT_OWNER, OBJECT_NAME
                   FROM DBA_HIST_SQL_PLAN
-                 WHERE SQL_ID = '&&sqlid'
+                 WHERE SQL_ID = :sql_id_bind
                    AND OBJECT_NAME IS NOT NULL))
 SELECT a.owner,
        a.name,
@@ -1154,12 +1541,12 @@ WITH t AS
 (SELECT /*+ materialize */DISTINCT OBJECT_OWNER, OBJECT_NAME
           FROM (SELECT OBJECT_OWNER, OBJECT_NAME
                   FROM V$SQL_PLAN
-                 WHERE SQL_ID = '&&sqlid'
+                 WHERE SQL_ID = :sql_id_bind
                    AND OBJECT_NAME IS NOT NULL
                 UNION ALL
                 SELECT OBJECT_OWNER, OBJECT_NAME
                   FROM DBA_HIST_SQL_PLAN
-                 WHERE SQL_ID = '&&sqlid'
+                 WHERE SQL_ID = :sql_id_bind
                    AND OBJECT_NAME IS NOT NULL))
 SELECT table_name ,PARTITION_NAME,
        HIGH_VALUE,
@@ -1183,6 +1570,9 @@ SELECT table_name ,PARTITION_NAME,
  ORDER BY table_name,PARTITION_POSITION
 /
 clear breaks
+
+-- Clean up bind variable
+var sql_id_bind varchar2(30)
 undefine sqlid;
 
 

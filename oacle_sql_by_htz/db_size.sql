@@ -22,6 +22,8 @@ prompt *******************tablespace size**************************
 -- WHERE Free.Tablespace_name (+) = Total.name
 -- ORDER BY Total.name) order by used_percent desc;*/
 --
+
+
 SELECT /* + RULE */
  df.tablespace_name "Tablespace",
  df.bytes / (1024 * 1024) "Size (MB)",

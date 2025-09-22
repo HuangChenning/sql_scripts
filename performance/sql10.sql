@@ -9,6 +9,10 @@
 -- 20161115 添加AWR sql_stat的信息
 -- 20161129 添加10GR2版本的支持
 -- 20180426 修复部分对象不能统计大小
+-- 20180426 添加sql monitor信息，默认此功能是关闭的，通过_SQL_MONITOR来开启
+-- 20180520 支持在cdb环境中运行，但是目前只支持在pdb中只能存在唯一一条sql_id的情况
+-- 20230111 修改awr里性能数据显示的单位
+
 alter session set nls_date_format='yyyymmdd';
 set serveroutput on size 1000000
 
@@ -18,10 +22,17 @@ set echo off
 set pages 0
 undefine sqlid;
 select '&&sqlid' from dual;
+define _SQL_MONITOR = "  "
 define _VERSION_11  = "--"
+define _VERSION_12  = "--"
 define _VERSION_10  = "--"
+define _CDB_MODE    = "--"
+col pdbname    noprint new_value _PDBNAME
+col version12  noprint new_value _VERSION_12
 col version11  noprint new_value _VERSION_11
 col version10  noprint new_value _VERSION_10
+
+
 select /*+ no_parallel */case
          when substr(banner,
                      instr(banner, 'Release ') + 8,
@@ -43,9 +54,20 @@ select /*+ no_parallel */case
           '  '
          else
           '--'
-       end  version11
+       end  version11,
+              case
+         when substr(banner,
+                     instr(banner, 'Release ') + 8,
+                     instr(substr(banner, instr(banner, 'Release ') + 8), ' ')) >=
+              '12.1' then
+          '  '
+         else
+          '--'
+       end  version12
   from v$version
  where banner like 'Oracle Database%';
+
+
 -------------------------------------------------------------------------------------------------
 col CPU_TIME                heading "CPU|TIME"           for 999999,999,999
 col ELAPSED_TIME            heading "ELAPSED|TIME"       for 999999,999,999
@@ -139,6 +161,12 @@ col COLUMN_POSITION         heading "Col|Pos"            for 999
 col degree                  heading "D"                  for a1
 col index_local             heading "LOCAL|PRE"          for a6
 -------------------------------------------------------------------------------------------------
+col file_name new_value file_name noprint;
+select '18081072613_'|| HOST_NAME||'_'||INSTANCE_NAME||'_'||
+         '&&sqlid~'||'_'||to_char(sysdate,'yyyymmddhh24')||'_htz.txt' file_name
+         from v$instance
+;
+spool &file_name;
 
 -------------------------------------------------------------------------------------------------
 set pages 10000 heading on
@@ -380,6 +408,18 @@ prompt *************************************************************************
 &_VERSION_11    END IF;
  END;
  /
+
+prompt
+prompt ****************************************************************************************
+prompt SQL MONITOR
+prompt ****************************************************************************************
+
+SELECT
+&_VERSION_11   &_SQL_MONITOR   DBMS_SQLTUNE.report_sql_monitor(sql_id       => '&&sqlid',
+&_VERSION_11   &_SQL_MONITOR                                   type         => 'TEXT',
+&_VERSION_11   &_SQL_MONITOR                                   report_level => 'NONE+PLAN+ACTIVITY-SQL_FULLTEXT-SQL_TEXT-SESSIONS-OTHER') AS report
+FROM dual
+
 prompt
 prompt ****************************************************************************************
 prompt SQL STATS
@@ -414,27 +454,122 @@ PROMPT | information from v$sql                 |
 PROMPT +------------------------------------------------------------------------+
 PROMPT
 
-SELECT trim(EXECUTIONS) EXECUTIONS,
-       plan_hash_value,
-       child_number c,
-       PARSING_SCHEMA_NAME username,
-       (CPU_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS))/1000 CPU_PRE_EXEC,
-       (ELAPSED_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS))/1000 ELA_PRE_EXEC,
-       DISK_READS / DECODE (EXECUTIONS, 0, 1, EXECUTIONS) DISK_PRE_EXEC,
-       BUFFER_GETS / DECODE (EXECUTIONS, 0, 1, EXECUTIONS) GET_PRE_EXEC,
-       ROWS_PROCESSED / DECODE (EXECUTIONS, 0, 1, EXECUTIONS) ROWS_PRE_EXEC,
-       ROWS_PROCESSED / DECODE (FETCHES, 0, 1, FETCHES) ROWS_PRE_FETCHES,
-       (APPLICATION_WAIT_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS))/1000 APP_WAIT_PRE,
-       (CONCURRENCY_WAIT_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS))/1000 CON_WAIT_PER,
-       (CLUSTER_WAIT_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS))/1000 CLU_WAIT_PER,
-       (USER_IO_WAIT_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS))/1000 USER_ID_WAIT_PER,
---       PLSQL_EXEC_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS) PLSQL_WAIT_PER,
---       JAVA_EXEC_TIME / DECODE (EXECUTIONS, 0, 1, EXECUTIONS) JAVA_WAIT_PER,
-       substr(FIRST_LOAD_TIME,6,10)||'.'||substr(LAST_LOAD_TIME,6,10) f_l_time
---       ,sql_profile
-  from v$sql
- where sql_id = '&&sqlid'
- order by 3;
+SELECT
+    CASE
+        WHEN EXECUTIONS < 1000 THEN TO_CHAR(EXECUTIONS)
+        WHEN EXECUTIONS < 10000 THEN TO_CHAR(ROUND(EXECUTIONS / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(EXECUTIONS / 10000, 2)) || 'W'
+    END AS EXECUTIONS,
+    plan_hash_value,
+    child_number AS c,
+    PARSING_SCHEMA_NAME AS username,
+      CASE
+        WHEN CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(CPU_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS CPU_PRE_EXEC,
+    CASE
+        WHEN ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS ELA_PRE_EXEC,
+  CASE
+        WHEN APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(APPLICATION_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS APP_PRE_EXEC,
+        CASE
+        WHEN CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(CONCURRENCY_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS CON_PRE_EXEC,
+        CASE
+        WHEN CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(CLUSTER_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS CLU_WAIT_PER,
+        CASE
+        WHEN USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(USER_IO_WAIT_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS USER_IO_WAIT_PER,
+        CASE
+        WHEN PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(PLSQL_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS PLSQL_WAIT_PER,
+        CASE
+        WHEN JAVA_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 < 1000
+            THEN ROUND(JAVA_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2) || 'ms'
+        WHEN JAVA_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 < 60
+            THEN ROUND(JAVA_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60, 2) || 's'
+        WHEN ELAPSED_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 < 60
+            THEN ROUND(JAVA_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60, 2) || 'm'
+        ELSE ROUND(JAVA_EXEC_TIME / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000 / 60 / 60 / 60, 2) || 'h'
+    END AS JAVA_WAIT_PER,
+    CASE
+        WHEN DISK_READS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) < 1000
+            THEN TO_CHAR(ROUND(DISK_READS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS),2))
+        WHEN DISK_READS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) < 10000
+            THEN TO_CHAR(ROUND(DISK_READS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(DISK_READS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 10000, 2)) || 'W'
+    END AS DISK_PRE_EXEC,
+    CASE
+        WHEN BUFFER_GETS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) < 1000
+            THEN TO_CHAR(ROUND(BUFFER_GETS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS),2))
+        WHEN BUFFER_GETS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) < 10000
+            THEN TO_CHAR(ROUND(BUFFER_GETS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(BUFFER_GETS / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 10000, 2)) || 'W'
+    END AS GET_PRE_EXEC,
+    CASE
+        WHEN ROWS_PROCESSED / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) < 1000
+            THEN TO_CHAR(ROUND(ROWS_PROCESSED / DECODE(EXECUTIONS, 0, 1, EXECUTIONS),2))
+        WHEN ROWS_PROCESSED / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) < 10000
+            THEN TO_CHAR(ROUND(ROWS_PROCESSED / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(ROWS_PROCESSED / DECODE(EXECUTIONS, 0, 1, EXECUTIONS) / 10000, 2)) || 'W'
+    END AS ROWS_PRE_EXEC,
+    CASE
+        WHEN ROWS_PROCESSED / DECODE(FETCHES, 0, 1, FETCHES) < 1000
+            THEN TO_CHAR(ROUND(ROWS_PROCESSED / DECODE(FETCHES, 0, 1, FETCHES),2))
+        WHEN ROWS_PROCESSED / DECODE(FETCHES, 0, 1, FETCHES) < 10000
+            THEN TO_CHAR(ROUND(ROWS_PROCESSED / DECODE(FETCHES, 0, 1, FETCHES) / 1000, 2)) || 'K'
+        ELSE TO_CHAR(ROUND(ROWS_PROCESSED / DECODE(FETCHES, 0, 1, FETCHES) / 10000, 2)) || 'W'
+    END AS ROWS_PRE_FETCH,
+    SUBSTR(FIRST_LOAD_TIME, 6, 10) || '.' || SUBSTR(LAST_LOAD_TIME, 6, 10) AS f_l_time
+FROM v$sql s
+WHERE sql_id = '&&sqlid'
+ORDER BY plan_hash_value;
+
+
+
 PROMPT
 PROMPT +------------------------------------------------------------------------+
 PROMPT | information from awr   sysdate-7                                       |
@@ -494,22 +629,22 @@ PROMPT
             USER_ID_WAIT_PER,
          TRUNC (
             (  (elapsed_time_delta)
-             / DECODE ( (executions_delta), 0, 1, (executions_delta))),
+             / DECODE ( (executions_delta), 0, 1, (executions_delta)))/
             1000)
             ELA_PRE_EXEC,
          TRUNC (
             (  (cpu_time_delta)
-             / DECODE ( (executions_delta), 0, 1, (executions_delta))),
+             / DECODE ( (executions_delta), 0, 1, (executions_delta)))/
             1000)
             CPU_PRE_EXEC,
          TRUNC (
             (  (CLWAIT_DELTA)
-             / DECODE ( (executions_delta), 0, 1, (executions_delta))),
+             / DECODE ( (executions_delta), 0, 1, (executions_delta)))/
             1000)
             CLU_WAIT_PER,
          TRUNC (
             (  (PLSEXEC_TIME_DELTA)
-             / DECODE ( (executions_delta), 0, 1, (executions_delta))),
+             / DECODE ( (executions_delta), 0, 1, (executions_delta)))/
             1000)
             PLSQL_WAIT_PER
     FROM dba_hist_sqlstat a, dba_hist_snapshot b
@@ -1153,3 +1288,5 @@ SELECT table_name ,PARTITION_NAME,
 /
 clear breaks
 undefine sqlid;
+
+
